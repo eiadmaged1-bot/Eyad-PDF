@@ -12,63 +12,69 @@ permissions:
 
 jobs:
   build-and-verify:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    runs-on: windows-latest
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
 
-      - name: Detect Android project
-        id: project
-        shell: bash
-        run: |
-          if [ -f gradlew ] && [ -f app/build.gradle.kts ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "Android project has not been imported yet; quality gate is waiting."
-          fi
-
       - name: Set up JDK 17
-        if: steps.project.outputs.ready == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
           cache: gradle
 
-      - name: Verify fully offline manifest policy
-        if: steps.project.outputs.ready == 'true'
-        shell: bash
+      - name: Verify release identity and offline policy
+        shell: pwsh
         run: |
-          set -euo pipefail
-          if grep -R "android.permission.INTERNET" app/src/main/AndroidManifest.xml app/src/*/AndroidManifest.xml 2>/dev/null; then
-            echo "INTERNET permission is forbidden in Eyad PDF."
-            exit 1
-          fi
+          $ErrorActionPreference = 'Stop'
+          $gradle = Get-Content app/build.gradle.kts -Raw
+          if ($gradle -notmatch 'applicationId\s*=\s*"com\.eyadpdf\.android"') {
+            throw 'Final application ID is not com.eyadpdf.android.'
+          }
+          $properties = Get-Content gradle.properties
+          if ($properties -notcontains 'APP_VERSION_NAME=0.15.0') {
+            throw 'APP_VERSION_NAME must be 0.15.0.'
+          }
+          if ($properties -notcontains 'APP_VERSION_CODE=215') {
+            throw 'APP_VERSION_CODE must be 215.'
+          }
+          $internetPermission = Get-ChildItem app/src -Recurse -Filter AndroidManifest.xml |
+            Select-String -SimpleMatch 'android.permission.INTERNET'
+          if ($internetPermission) {
+            throw 'INTERNET permission is forbidden in the Eyad PDF offline build.'
+          }
 
-      - name: Build open-source offline APK
-        if: steps.project.outputs.ready == 'true'
-        shell: bash
+      - name: Test, lint and build open-source APK
+        shell: pwsh
         run: |
-          chmod +x gradlew
-          ./gradlew --no-daemon :app:lintOpensourceDebug :app:assembleOpensourceDebug
+          $ErrorActionPreference = 'Stop'
+          .\gradlew.bat --no-daemon `
+            :app:testOpensourceDebugUnitTest `
+            :app:lintOpensourceDebug `
+            :app:assembleOpensourceDebug
 
-      - name: Prepare named APK artifact
-        if: steps.project.outputs.ready == 'true'
-        shell: bash
+      - name: Prepare named APK and checksum
+        id: artifact
+        shell: pwsh
         run: |
-          set -euo pipefail
-          mkdir -p artifacts
-          APK="$(find app/build/outputs/apk -type f -name '*.apk' | head -n 1)"
-          test -n "$APK"
-          cp "$APK" artifacts/Eyad-PDF-Android-v0.13.0-UI-Modernization-debug.apk
-          sha256sum artifacts/Eyad-PDF-Android-v0.13.0-UI-Modernization-debug.apk > artifacts/Eyad-PDF-Android-v0.13.0-UI-Modernization-debug.apk.sha256
+          $ErrorActionPreference = 'Stop'
+          $versionLine = Get-Content gradle.properties | Where-Object { $_ -like 'APP_VERSION_NAME=*' } | Select-Object -First 1
+          $version = $versionLine.Split('=', 2)[1]
+          $apk = Get-ChildItem app/build/outputs/apk/opensource/debug -Recurse -Filter *.apk | Select-Object -First 1
+          if (-not $apk) { throw 'No open-source debug APK was produced.' }
+          New-Item artifacts -ItemType Directory -Force | Out-Null
+          $name = "Eyad-PDF-Android-v$version-opensource-debug.apk"
+          $target = Join-Path artifacts $name
+          Copy-Item $apk.FullName $target -Force
+          $hash = (Get-FileHash $target -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $name" | Set-Content "$target.sha256" -Encoding ascii
+          "name=Eyad-PDF-Android-v$version-opensource-debug" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      - name: Upload Eyad PDF APK
-        if: steps.project.outputs.ready == 'true'
+      - name: Upload verified Eyad PDF APK
         uses: actions/upload-artifact@v4
         with:
-          name: Eyad-PDF-Android-v0.13.0-UI-Modernization-debug
+          name: ${{ steps.artifact.outputs.name }}
           path: artifacts/*
           if-no-files-found: error
           retention-days: 30
