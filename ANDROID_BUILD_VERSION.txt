@@ -1,0 +1,4 @@
+Eyad PDF Android v0.12.0
+Workspace Rebuild
+Official icon verified by SHA-256
+Offline open-source debug build
