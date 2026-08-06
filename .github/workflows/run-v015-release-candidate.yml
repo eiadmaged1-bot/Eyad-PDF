@@ -11,7 +11,8 @@ permissions:
 
 jobs:
   patch:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -19,14 +20,14 @@ jobs:
           fetch-depth: 0
 
       - name: Apply consolidated council patch
-        run: python3 tools/apply_v015_release_candidate.py
+        shell: pwsh
+        run: python tools/apply_v015_release_candidate.py
 
       - name: Commit v0.15 release candidate
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          rm -f tools/apply_v015_release_candidate.py
-          rm -f .github/workflows/run-v015-release-candidate.yml
+          Remove-Item tools/apply_v015_release_candidate.py -Force
+          Remove-Item .github/workflows/run-v015-release-candidate.yml -Force
           git config user.name 'Eyad PDF Build Bot'
           git config user.email 'eiadmaged1@gmail.com'
           git add -A
