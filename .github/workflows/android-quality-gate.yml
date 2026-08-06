@@ -61,14 +61,14 @@ jobs:
           mkdir -p artifacts
           APK="$(find app/build/outputs/apk -type f -name '*.apk' | head -n 1)"
           test -n "$APK"
-          cp "$APK" artifacts/Eyad-PDF-Android-v0.11.0-debug.apk
-          sha256sum artifacts/Eyad-PDF-Android-v0.11.0-debug.apk > artifacts/Eyad-PDF-Android-v0.11.0-debug.apk.sha256
+          cp "$APK" artifacts/Eyad-PDF-Android-v0.13.0-UI-Modernization-debug.apk
+          sha256sum artifacts/Eyad-PDF-Android-v0.13.0-UI-Modernization-debug.apk > artifacts/Eyad-PDF-Android-v0.13.0-UI-Modernization-debug.apk.sha256
 
       - name: Upload Eyad PDF APK
         if: steps.project.outputs.ready == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: Eyad-PDF-Android-v0.11.0-debug
+          name: Eyad-PDF-Android-v0.13.0-UI-Modernization-debug
           path: artifacts/*
           if-no-files-found: error
           retention-days: 30
