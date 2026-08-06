@@ -12,8 +12,8 @@ concurrency:
 
 jobs:
   signed-release:
-    runs-on: windows-latest
-    timeout-minutes: 55
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
 
@@ -25,59 +25,53 @@ jobs:
           cache: gradle
 
       - name: Restore protected signing keystore
-        shell: pwsh
+        shell: bash
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          $ErrorActionPreference = 'Stop'
-          if ([string]::IsNullOrWhiteSpace($env:ANDROID_KEYSTORE_BASE64)) { throw 'ANDROID_KEYSTORE_BASE64 is missing.' }
-          if ([string]::IsNullOrWhiteSpace($env:KEYSTORE_PASSWORD)) { throw 'KEYSTORE_PASSWORD is missing.' }
-          if ([string]::IsNullOrWhiteSpace($env:KEY_ALIAS)) { throw 'KEY_ALIAS is missing.' }
-          if ([string]::IsNullOrWhiteSpace($env:KEY_PASSWORD)) { throw 'KEY_PASSWORD is missing.' }
-          $keystore = Join-Path $env:RUNNER_TEMP 'eyad-pdf-release.jks'
-          [IO.File]::WriteAllBytes($keystore, [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))
-          if ((Get-Item $keystore).Length -le 0) { throw 'Decoded keystore is empty.' }
-          "ANDROID_KEYSTORE_FILE=$keystore" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          set -euo pipefail
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
+          KEYSTORE="$RUNNER_TEMP/eyad-pdf-release.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          test -s "$KEYSTORE"
+          echo "ANDROID_KEYSTORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"
 
       - name: Test, lint and build signed release
-        shell: pwsh
+        shell: bash
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          $ErrorActionPreference = 'Stop'
-          .\gradlew.bat --no-daemon `
-            :app:testOpensourceDebugUnitTest `
-            :app:lintOpensourceRelease `
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon \
+            :app:testOpensourceDebugUnitTest \
+            :app:lintOpensourceRelease \
             :app:assembleOpensourceRelease
 
       - name: Verify signature and prepare release artifact
         id: release
-        shell: pwsh
+        shell: bash
         run: |
-          $ErrorActionPreference = 'Stop'
-          $versionLine = Get-Content gradle.properties | Where-Object { $_ -like 'APP_VERSION_NAME=*' } | Select-Object -First 1
-          $version = $versionLine.Split('=', 2)[1]
-          $apk = Get-ChildItem app/build/outputs/apk/opensource/release -Recurse -Filter *.apk | Select-Object -First 1
-          if (-not $apk) { throw 'No signed release APK was produced.' }
-          $sdkRoot = if ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } else { $env:ANDROID_HOME }
-          $apksigner = Get-ChildItem (Join-Path $sdkRoot 'build-tools') -Recurse -Filter apksigner.bat |
-            Sort-Object FullName |
-            Select-Object -Last 1
-          if (-not $apksigner) { throw 'apksigner.bat was not found.' }
-          & $apksigner.FullName verify --verbose --print-certs $apk.FullName
-          if ($LASTEXITCODE -ne 0) { throw 'APK signature verification failed.' }
-          New-Item artifacts -ItemType Directory -Force | Out-Null
-          $name = "Eyad-PDF-Android-v$version-signed.apk"
-          $target = Join-Path artifacts $name
-          Copy-Item $apk.FullName $target -Force
-          $hash = (Get-FileHash $target -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $name" | Set-Content "$target.sha256" -Encoding ascii
-          "name=Eyad-PDF-Android-v$version-signed" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          set -euo pipefail
+          VERSION="$(grep '^APP_VERSION_NAME=' gradle.properties | head -n 1 | cut -d= -f2-)"
+          APK="$(find app/build/outputs/apk/opensource/release -type f -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          APKSIGNER="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          mkdir -p artifacts
+          NAME="Eyad-PDF-Android-v${VERSION}-signed.apk"
+          cp "$APK" "artifacts/$NAME"
+          sha256sum "artifacts/$NAME" > "artifacts/$NAME.sha256"
+          echo "name=Eyad-PDF-Android-v${VERSION}-signed" >> "$GITHUB_OUTPUT"
 
       - name: Upload permanent signed APK
         uses: actions/upload-artifact@v7
@@ -89,7 +83,5 @@ jobs:
 
       - name: Remove signing material
         if: always()
-        shell: pwsh
-        run: |
-          $keystore = Join-Path $env:RUNNER_TEMP 'eyad-pdf-release.jks'
-          if (Test-Path $keystore) { Remove-Item $keystore -Force }
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/eyad-pdf-release.jks"
