@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -244,105 +245,108 @@ fun PremiumToolsScreen(
                 }
             }
 
-            Column(
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(if (expanded) 236.dp else 172.dp),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = if (expanded) 28.dp else 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (expanded) 16.dp else 12.dp),
+                verticalArrangement = Arrangement.spacedBy(if (expanded) 16.dp else 12.dp),
+                contentPadding = PaddingValues(bottom = 34.dp),
             ) {
-                WorkspaceHero(
-                    toolCount = resolvedTools.size,
-                    expanded = expanded,
-                    onOpenPdf = { openPdf.launch(arrayOf("application/pdf")) },
-                )
+                item(span = { GridItemSpan(maxLineSpan) }, key = "workspace_hero") {
+                    WorkspaceHero(
+                        toolCount = resolvedTools.size,
+                        expanded = expanded,
+                        onOpenPdf = { openPdf.launch(arrayOf("application/pdf")) },
+                    )
+                }
 
-                Spacer(Modifier.height(if (expanded) 18.dp else 14.dp))
-
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(58.dp),
-                    singleLine = true,
-                    shape = RoundedCornerShape(20.dp),
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    placeholder = { Text("Search all PDF tools") },
-                    trailingIcon = {
-                        if (query.isNotEmpty()) {
-                            IconButton(onClick = { query = "" }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                item(span = { GridItemSpan(maxLineSpan) }, key = "tool_search") {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(58.dp),
+                        singleLine = true,
+                        shape = RoundedCornerShape(20.dp),
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        placeholder = { Text("Search all PDF tools") },
+                        trailingIcon = {
+                            if (query.isNotEmpty()) {
+                                IconButton(onClick = { query = "" }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                                }
                             }
-                        }
-                    },
-                )
+                        },
+                    )
+                }
 
                 if (!expanded) {
-                    Spacer(Modifier.height(12.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                        item {
-                            FilterChip(
-                                selected = selectedSection == null,
-                                onClick = { selectedSection = null },
-                                label = { Text("All tools") },
-                            )
-                        }
-                        items(premiumSections, key = { it.name }) { section ->
-                            FilterChip(
-                                selected = selectedSection == section,
-                                onClick = { selectedSection = section },
-                                label = { Text(sectionLabel(section)) },
-                            )
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "tool_filters") {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                            item {
+                                FilterChip(
+                                    selected = selectedSection == null,
+                                    onClick = { selectedSection = null },
+                                    label = { Text("All tools") },
+                                )
+                            }
+                            items(premiumSections, key = { it.name }) { section ->
+                                FilterChip(
+                                    selected = selectedSection == section,
+                                    onClick = { selectedSection = section },
+                                    label = { Text(sectionLabel(section)) },
+                                )
+                            }
                         }
                     }
                 }
 
-                Spacer(Modifier.height(if (expanded) 18.dp else 14.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                item(
+                    span = { GridItemSpan(maxLineSpan) },
+                    key = "section_heading_${selectedSection?.name ?: "all"}",
                 ) {
-                    Column {
-                        Text(
-                            text = sectionLabel(selectedSection),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = "Choose a tool and work completely offline",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer,
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(
-                            text = "${visibleTools.size} tools",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(horizontal = 13.dp, vertical = 7.dp),
-                        )
+                        Column {
+                            Text(
+                                text = sectionLabel(selectedSection),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                text = "Choose a tool and work completely offline",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                        ) {
+                            Text(
+                                text = "${visibleTools.size} tools",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 13.dp, vertical = 7.dp),
+                            )
+                        }
                     }
                 }
-                Spacer(Modifier.height(12.dp))
 
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(if (expanded) 236.dp else 172.dp),
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(if (expanded) 16.dp else 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(if (expanded) 16.dp else 12.dp),
-                    contentPadding = PaddingValues(bottom = 34.dp),
-                ) {
-                    items(visibleTools, key = { it.source.id }) { tool ->
-                        PremiumToolCard(
-                            tool = tool,
-                            expanded = expanded,
-                            onClick = { openTool(tool.source) },
-                        )
-                    }
+                items(visibleTools, key = { it.source.id }) { tool ->
+                    PremiumToolCard(
+                        tool = tool,
+                        expanded = expanded,
+                        onClick = { openTool(tool.source) },
+                    )
                 }
+            }
             }
         }
     }

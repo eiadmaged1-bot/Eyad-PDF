@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import com.yourname.pdftoolkit.R
 import androidx.compose.ui.text.font.FontWeight
@@ -346,6 +347,15 @@ fun AppNavigation(
         Screen.Tools.route,
         Screen.Files.route
     )
+
+    // Collapse while the user scrolls toward later content. Reveal as soon as
+    // scrolling reverses so navigation never feels lost.
+    val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
+    LaunchedEffect(currentRoute) {
+        topBarScrollBehavior.state.heightOffset = 0f
+        topBarScrollBehavior.state.contentOffset = 0f
+    }
     
     // History sidebar state
     var isHistorySidebarOpen by remember { mutableStateOf(false) }
@@ -358,7 +368,9 @@ fun AppNavigation(
 
     Box(modifier = modifier.fillMaxSize()) {
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(topBarScrollBehavior.nestedScrollConnection),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             if (showTopBar) {
@@ -413,8 +425,10 @@ fun AppNavigation(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                    scrollBehavior = topBarScrollBehavior,
                 )
             }
         },
