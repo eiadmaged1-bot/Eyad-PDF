@@ -89,4 +89,6 @@ jobs:
       - name: Remove signing material
         if: always()
         shell: bash
-        run: rm -f "$RUNNER_TEMP/eyad-pdf-release.jks"
+        run: |
+          echo "Cleaning protected signing material"
+          rm -f "$RUNNER_TEMP/eyad-pdf-release.jks"
