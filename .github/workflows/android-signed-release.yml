@@ -2,6 +2,11 @@ name: Eyad PDF Signed Release
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - android/release-candidate-v0.15
+    paths:
+      - .github/workflows/android-signed-release.yml
 
 permissions:
   contents: read
