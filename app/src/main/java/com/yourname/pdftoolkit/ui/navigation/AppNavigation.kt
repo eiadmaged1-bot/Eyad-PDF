@@ -440,7 +440,7 @@ fun AppNavigation(
         ) {
             // Main Tabs
             composable(Screen.Tools.route) {
-                ToolsScreen(
+                PremiumToolsScreen(
                     onNavigateToScreen = { screen ->
                         safeNavigate(navController, screen.route)
                     },
@@ -670,7 +670,7 @@ fun AppNavigation(
             }
             
             composable(Screen.Reorder.route) {
-                ReorderScreen(onNavigateBack = { navController.popBackStack() })
+                TouchReorderScreen(onNavigateBack = { navController.popBackStack() })
             }
             
             composable(Screen.Unlock.route) {
