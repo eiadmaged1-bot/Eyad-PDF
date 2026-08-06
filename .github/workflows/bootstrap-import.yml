@@ -1,0 +1,149 @@
+name: Bootstrap Eyad PDF Android Source
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-source:
+    if: ${{ !contains(github.event.head_commit.message, '[bootstrap complete]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Eyad PDF
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Import pinned offline PDF donor source
+        shell: bash
+        run: |
+          set -euo pipefail
+          DONOR_SHA="cf8ad122707ca63078b5c78f3e02685e2a069b50"
+          git clone --filter=blob:none https://github.com/Karna14314/Pdf_Tools.git /tmp/pdf-tools
+          git -C /tmp/pdf-tools checkout "$DONOR_SHA"
+          rsync -a --delete \
+            --exclude='.git' \
+            --exclude='.github' \
+            /tmp/pdf-tools/ ./
+
+      - name: Apply Eyad PDF identity and offline policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -RIl --exclude-dir=build --exclude-dir=.gradle 'PDF Toolkit' app/src/main 2>/dev/null | \
+            xargs -r sed -i 's/PDF Toolkit/Eyad PDF/g'
+          grep -RIl --exclude-dir=build --exclude-dir=.gradle 'PDFToolkit' app/src/main 2>/dev/null | \
+            xargs -r sed -i 's/PDFToolkit/Eyad PDF/g'
+
+          cat > EYAD_PDF_STATUS.md <<'EOF'
+          # Eyad PDF Android Workspace Rebuild
+
+          Baseline imported from `Karna14314/Pdf_Tools` at commit
+          `cf8ad122707ca63078b5c78f3e02685e2a069b50` under Apache-2.0.
+
+          Current engineering priorities:
+
+          1. Premium adaptive phone/tablet dashboard.
+          2. Full tool catalogue with honest readiness states.
+          3. Exact-finger floating-overlay page drag.
+          4. Multi-page block movement and edge auto-scroll.
+          5. Offline Arabic/English OCR using PaddleOCR/ONNX.
+          6. Automated APK, lint, privacy and output validation gates.
+
+          The donor's arrow-based reorder screen is not accepted as the final
+          Eyad PDF touch interaction and will be replaced.
+          EOF
+
+          cat > THIRD_PARTY_ATTRIBUTIONS.md <<'EOF'
+          # Third-party attributions
+
+          Eyad PDF incorporates and adapts portions of PDF Toolkit by
+          Narisetti Chaitanya Naidu (`Karna14314/Pdf_Tools`), licensed under
+          the Apache License 2.0.
+
+          Upstream commit used for the initial Android engine import:
+          `cf8ad122707ca63078b5c78f3e02685e2a069b50`.
+
+          Eyad PDF retains the upstream Apache-2.0 license and notices.
+          EOF
+
+      - name: Install Eyad PDF Android quality gate
+        shell: bash
+        run: |
+          mkdir -p .github/workflows
+          cat > .github/workflows/android-quality-gate.yml <<'EOF'
+          name: Eyad PDF Android Quality Gate
+
+          on:
+            push:
+              branches: [ main, 'android/**' ]
+            pull_request:
+              branches: [ main ]
+            workflow_dispatch:
+
+          permissions:
+            contents: read
+
+          jobs:
+            build-and-verify:
+              runs-on: ubuntu-latest
+              timeout-minutes: 45
+              steps:
+                - uses: actions/checkout@v4
+
+                - name: Set up JDK 17
+                  uses: actions/setup-java@v4
+                  with:
+                    distribution: temurin
+                    java-version: '17'
+                    cache: gradle
+
+                - name: Verify fully offline manifest policy
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    if grep -R "android.permission.INTERNET" app/src/main/AndroidManifest.xml app/src/*/AndroidManifest.xml 2>/dev/null; then
+                      echo "INTERNET permission is forbidden in Eyad PDF."
+                      exit 1
+                    fi
+
+                - name: Build open-source offline APK
+                  shell: bash
+                  run: |
+                    chmod +x gradlew
+                    ./gradlew --no-daemon :app:lintOpensourceDebug :app:assembleOpensourceDebug
+
+                - name: Prepare named APK artifact
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    mkdir -p artifacts
+                    APK="$(find app/build/outputs/apk -type f -name '*.apk' | head -n 1)"
+                    test -n "$APK"
+                    cp "$APK" artifacts/Eyad-PDF-Android-v0.11.0-debug.apk
+                    sha256sum artifacts/Eyad-PDF-Android-v0.11.0-debug.apk > artifacts/Eyad-PDF-Android-v0.11.0-debug.apk.sha256
+
+                - name: Upload Eyad PDF APK
+                  uses: actions/upload-artifact@v4
+                  with:
+                    name: Eyad-PDF-Android-v0.11.0-debug
+                    path: artifacts/*
+                    if-no-files-found: error
+                    retention-days: 30
+          EOF
+
+          rm -f .github/workflows/bootstrap-import.yml
+
+      - name: Commit imported source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Eyad PDF Build Bot"
+          git config user.email "eiadmaged1@gmail.com"
+          git add -A
+          git commit -m "Import Android PDF engine baseline [bootstrap complete]"
+          git push origin main
