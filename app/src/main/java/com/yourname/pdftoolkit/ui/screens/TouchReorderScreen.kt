@@ -276,7 +276,7 @@ fun TouchReorderScreen(
             ) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -328,7 +328,7 @@ fun TouchReorderScreen(
                     pages.isEmpty() -> Surface(
                         modifier = Modifier.fillMaxSize(),
                         shape = RoundedCornerShape(24.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        color = MaterialTheme.colorScheme.surface,
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -369,7 +369,7 @@ fun TouchReorderScreen(
                                     containerColor = if (selected) {
                                         MaterialTheme.colorScheme.primaryContainer
                                     } else {
-                                        MaterialTheme.colorScheme.surfaceContainerLow
+                                        MaterialTheme.colorScheme.surfaceVariant
                                     },
                                 ),
                                 border = if (insertionHighlight) {
