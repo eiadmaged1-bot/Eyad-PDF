@@ -29,18 +29,17 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun Eyad PDFTheme(
+fun EyadPdfTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    // Determine the actual dark theme state based on AppCompatDelegate mode
     val actualDarkTheme = when (AppCompatDelegate.getDefaultNightMode()) {
         AppCompatDelegate.MODE_NIGHT_YES -> true
         AppCompatDelegate.MODE_NIGHT_NO -> false
-        else -> darkTheme // MODE_NIGHT_FOLLOW_SYSTEM or unspecified
+        else -> darkTheme
     }
-    
+
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
@@ -50,6 +49,7 @@ fun Eyad PDFTheme(
         actualDarkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
