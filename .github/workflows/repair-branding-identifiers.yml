@@ -1,0 +1,45 @@
+name: Repair Eyad PDF Branding Identifiers
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Repair invalid Kotlin identifiers introduced by branding
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -i 's/import com\.yourname\.pdftoolkit\.ui\.theme\.Eyad PDFTheme/import com.yourname.pdftoolkit.ui.theme.EyadPdfTheme/' \
+            app/src/main/java/com/yourname/pdftoolkit/ui/MainActivity.kt
+          sed -i 's/Eyad PDFTheme {/EyadPdfTheme {/' \
+            app/src/main/java/com/yourname/pdftoolkit/ui/MainActivity.kt
+
+          if grep -RIn --include='*.kt' 'Eyad PDFTheme' app/src/main/java; then
+            echo 'Invalid spaced Kotlin identifier remains.'
+            exit 1
+          fi
+
+      - name: Commit repair once
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'No identifier repair needed.'
+            exit 0
+          fi
+          git config user.name 'Eyad PDF Build Bot'
+          git config user.email 'eiadmaged1@gmail.com'
+          git add app/src/main/java/com/yourname/pdftoolkit/ui/MainActivity.kt
+          git commit -m 'Repair Android branding identifiers [identifier repair complete]'
+          git push origin main
