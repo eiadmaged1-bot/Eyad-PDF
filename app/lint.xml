@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!--
+      v0.15 modern workspace text is intentionally translated for English and Arabic.
+      Other existing locales use Android's English fallback until reviewed human
+      translations are available. Keep the exception scoped to these exact resources.
+    -->
+    <issue id="MissingTranslation">
+        <ignore regexp="premium_(private_workspace|offline_private_tools|search_tools|all_tools|choose_tool_offline|tool_count)|files_(filter_all|filter_pdf|subtitle|open_pdf_title|open_pdf_subtitle|recent_title|empty_title|empty_subtitle)" />
+    </issue>
+</lint>
