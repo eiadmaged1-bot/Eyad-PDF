@@ -1,0 +1,59 @@
+name: Eyad PDF Android Quality Gate
+
+on:
+  push:
+    branches: [ main, 'android/**' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-verify:
+    if: ${{ hashFiles('gradlew') != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Verify fully offline manifest policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R "android.permission.INTERNET" app/src/main/AndroidManifest.xml app/src/*/AndroidManifest.xml 2>/dev/null; then
+            echo "INTERNET permission is forbidden in Eyad PDF."
+            exit 1
+          fi
+
+      - name: Build open-source offline APK
+        shell: bash
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:lintOpensourceDebug :app:assembleOpensourceDebug
+
+      - name: Prepare named APK artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          APK="$(find app/build/outputs/apk -type f -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          cp "$APK" artifacts/Eyad-PDF-Android-v0.11.0-debug.apk
+          sha256sum artifacts/Eyad-PDF-Android-v0.11.0-debug.apk > artifacts/Eyad-PDF-Android-v0.11.0-debug.apk.sha256
+
+      - name: Upload Eyad PDF APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Eyad-PDF-Android-v0.11.0-debug
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 30
