@@ -1,6 +1,8 @@
 name: Apply v0.14 Scroll-aware Chrome
 
 on:
+  push:
+    branches: [ android/ui-modernization-v0.14 ]
   workflow_dispatch:
 
 permissions:
