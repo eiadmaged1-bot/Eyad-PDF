@@ -1,0 +1,74 @@
+name: Apply v0.14 Transition Cleanup
+
+on:
+  push:
+    branches:
+      - android/ui-modernization-v0.14
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: android/ui-modernization-v0.14
+          fetch-depth: 0
+
+      - name: Remove translucent route overlap
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/main/java/com/yourname/pdftoolkit/ui/navigation/AppNavigation.kt')
+          text = path.read_text(encoding='utf-8')
+
+          if 'import androidx.compose.animation.EnterTransition' not in text:
+              text = text.replace(
+                  'import androidx.compose.animation.AnimatedVisibility\n',
+                  'import androidx.compose.animation.AnimatedVisibility\n'
+                  'import androidx.compose.animation.EnterTransition\n'
+                  'import androidx.compose.animation.ExitTransition\n',
+                  1,
+              )
+
+          old = '''        NavHost(
+            navController = navController,
+            startDestination = actualStartDestination,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+'''
+          new = '''        NavHost(
+            navController = navController,
+            startDestination = actualStartDestination,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            enterTransition = { EnterTransition.None },
+            exitTransition = { ExitTransition.None },
+            popEnterTransition = { EnterTransition.None },
+            popExitTransition = { ExitTransition.None },
+        ) {
+'''
+
+          if old not in text:
+              raise SystemExit('NavHost transition anchor not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Commit transition cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/apply-v014-transition-cleanup.yml
+          git config user.name 'Eyad PDF Build Bot'
+          git config user.email 'eiadmaged1@gmail.com'
+          git add -A
+          git commit -m 'Remove Android main-tab transition ghosting'
+          git push origin android/ui-modernization-v0.14
