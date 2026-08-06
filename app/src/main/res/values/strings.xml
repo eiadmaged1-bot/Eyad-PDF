@@ -590,4 +590,21 @@ Saved to: %1$s</string>
     <string name="split_from">From</string>
     <string name="split_to">To</string>
     <string name="split_page_numbers">Page Numbers</string>
+
+    <!-- Eyad PDF v0.15 adaptive workspace -->
+    <string name="premium_private_workspace">Your private document workspace</string>
+    <string name="premium_offline_private_tools">Offline • private • %1$d tools</string>
+    <string name="premium_search_tools">Search all PDF tools</string>
+    <string name="premium_all_tools">All tools</string>
+    <string name="premium_choose_tool_offline">Choose a tool and work completely offline</string>
+    <string name="premium_tool_count">%1$d tools</string>
+    <string name="files_filter_all">All</string>
+    <string name="files_filter_pdf">PDF</string>
+    <string name="files_subtitle">Access your recent documents</string>
+    <string name="files_open_pdf_title">Open PDF document</string>
+    <string name="files_open_pdf_subtitle">Browse and open PDF files</string>
+    <string name="files_recent_title">Recent files</string>
+    <string name="files_empty_title">No recent files</string>
+    <string name="files_empty_subtitle">Open a document to see it here</string>
+
 </resources>

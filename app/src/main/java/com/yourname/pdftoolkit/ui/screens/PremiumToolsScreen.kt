@@ -62,9 +62,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.yourname.pdftoolkit.R
 import com.yourname.pdftoolkit.data.SafUriManager
 import com.yourname.pdftoolkit.ui.navigation.Screen
 import kotlinx.coroutines.launch
@@ -84,14 +86,25 @@ private val premiumSections = listOf(
     ToolSection.VIEW_EXPORT,
 )
 
-private fun sectionLabel(section: ToolSection?): String = when (section) {
+private fun sectionSearchLabel(section: ToolSection?): String = when (section) {
     null -> "All tools"
     ToolSection.QUICK_ACTIONS -> "Quick actions"
     ToolSection.ORGANIZE -> "Organize PDF"
     ToolSection.CONVERT -> "Convert"
-    ToolSection.SECURITY -> "Security & markup"
-    ToolSection.IMAGE_TOOLS -> "Images & OCR"
-    ToolSection.VIEW_EXPORT -> "View & export"
+    ToolSection.SECURITY -> "Security and markup"
+    ToolSection.IMAGE_TOOLS -> "Images and OCR"
+    ToolSection.VIEW_EXPORT -> "View and export"
+}
+
+@Composable
+private fun sectionDisplayLabel(section: ToolSection?): String = when (section) {
+    null -> stringResource(R.string.premium_all_tools)
+    ToolSection.QUICK_ACTIONS -> stringResource(R.string.category_quick_actions)
+    ToolSection.ORGANIZE -> stringResource(R.string.category_organize)
+    ToolSection.CONVERT -> stringResource(R.string.category_convert)
+    ToolSection.SECURITY -> stringResource(R.string.category_security)
+    ToolSection.IMAGE_TOOLS -> stringResource(R.string.category_image_tools)
+    ToolSection.VIEW_EXPORT -> stringResource(R.string.category_view_export)
 }
 
 private fun sectionIcon(section: ToolSection?): ImageVector = when (section) {
@@ -151,7 +164,7 @@ fun PremiumToolsScreen(
         val queryMatches = query.isBlank() ||
             tool.title.contains(query, ignoreCase = true) ||
             tool.description.contains(query, ignoreCase = true) ||
-            sectionLabel(tool.source.section).contains(query, ignoreCase = true)
+            sectionSearchLabel(tool.source.section).contains(query, ignoreCase = true)
         sectionMatches && queryMatches
     }
 
@@ -220,7 +233,7 @@ fun PremiumToolsScreen(
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.Description,
-                                    contentDescription = "Eyad PDF",
+                                    contentDescription = stringResource(R.string.app_name),
                                     modifier = Modifier.size(32.dp),
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 )
@@ -232,14 +245,14 @@ fun PremiumToolsScreen(
                         selected = selectedSection == null,
                         onClick = { selectedSection = null },
                         icon = { Icon(sectionIcon(null), contentDescription = null) },
-                        label = { Text("All") },
+                        label = { Text(stringResource(R.string.action_select_all)) },
                     )
                     premiumSections.forEach { section ->
                         NavigationRailItem(
                             selected = selectedSection == section,
                             onClick = { selectedSection = section },
                             icon = { Icon(sectionIcon(section), contentDescription = null) },
-                            label = { Text(sectionLabel(section), maxLines = 1) },
+                            label = { Text(sectionDisplayLabel(section), maxLines = 1) },
                         )
                     }
                 }
@@ -272,11 +285,11 @@ fun PremiumToolsScreen(
                         singleLine = true,
                         shape = RoundedCornerShape(20.dp),
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        placeholder = { Text("Search all PDF tools") },
+                        placeholder = { Text(stringResource(R.string.premium_search_tools)) },
                         trailingIcon = {
                             if (query.isNotEmpty()) {
                                 IconButton(onClick = { query = "" }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                                    Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.cd_clear_search))
                                 }
                             }
                         },
@@ -290,14 +303,14 @@ fun PremiumToolsScreen(
                                 FilterChip(
                                     selected = selectedSection == null,
                                     onClick = { selectedSection = null },
-                                    label = { Text("All tools") },
+                                    label = { Text(stringResource(R.string.premium_all_tools)) },
                                 )
                             }
                             items(premiumSections, key = { it.name }) { section ->
                                 FilterChip(
                                     selected = selectedSection == section,
                                     onClick = { selectedSection = section },
-                                    label = { Text(sectionLabel(section)) },
+                                    label = { Text(sectionDisplayLabel(section)) },
                                 )
                             }
                         }
@@ -315,12 +328,12 @@ fun PremiumToolsScreen(
                     ) {
                         Column {
                             Text(
-                                text = sectionLabel(selectedSection),
+                                text = sectionDisplayLabel(selectedSection),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                text = "Choose a tool and work completely offline",
+                                text = stringResource(R.string.premium_choose_tool_offline),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -330,7 +343,7 @@ fun PremiumToolsScreen(
                             color = MaterialTheme.colorScheme.secondaryContainer,
                         ) {
                             Text(
-                                text = "${visibleTools.size} tools",
+                                text = stringResource(R.string.premium_tool_count, visibleTools.size),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier.padding(horizontal = 13.dp, vertical = 7.dp),
@@ -397,7 +410,7 @@ private fun WorkspaceHero(
 
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = "Eyad PDF",
+                    text = stringResource(R.string.app_name),
                     style = if (expanded) {
                         MaterialTheme.typography.headlineLarge
                     } else {
@@ -408,7 +421,7 @@ private fun WorkspaceHero(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Your private document workspace",
+                    text = stringResource(R.string.premium_private_workspace),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
@@ -424,7 +437,7 @@ private fun WorkspaceHero(
                         tint = MaterialTheme.colorScheme.secondary,
                     )
                     Text(
-                        text = "Offline • private • $toolCount tools",
+                        text = stringResource(R.string.premium_offline_private_tools, toolCount),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -439,7 +452,7 @@ private fun WorkspaceHero(
                 ) {
                     Icon(Icons.Default.FolderOpen, contentDescription = null)
                     Spacer(Modifier.width(9.dp))
-                    Text("Open PDF")
+                    Text(stringResource(R.string.action_open_pdf))
                 }
             }
         }
@@ -456,7 +469,7 @@ private fun WorkspaceHero(
         ) {
             Icon(Icons.Default.FolderOpen, contentDescription = null)
             Spacer(Modifier.width(9.dp))
-            Text("Open PDF")
+            Text(stringResource(R.string.action_open_pdf))
         }
     }
 }

@@ -38,9 +38,9 @@ import java.util.*
 /**
  * File type filter options.
  */
-enum class FileFilter(val title: String, val icon: ImageVector) {
-    ALL("All", Icons.Default.Folder),
-    PDF("PDF", Icons.Default.PictureAsPdf)
+enum class FileFilter(val titleResId: Int, val icon: ImageVector) {
+    ALL(R.string.files_filter_all, Icons.Default.Folder),
+    PDF(R.string.files_filter_pdf, Icons.Default.PictureAsPdf)
 }
 
 /**
@@ -165,7 +165,7 @@ fun FilesScreen(
     ) {
         // Subtitle
         Text(
-            text = "Access your recent documents",
+            text = stringResource(R.string.files_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -198,13 +198,13 @@ fun FilesScreen(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Open PDF Document",
+                        text = stringResource(R.string.files_open_pdf_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
-                        text = "Browse and open PDF files",
+                        text = stringResource(R.string.files_open_pdf_subtitle),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                     )
@@ -228,7 +228,7 @@ fun FilesScreen(
                 FilterChip(
                     selected = selectedFilter == filter,
                     onClick = { selectedFilter = filter },
-                    label = { Text(filter.title) },
+                    label = { Text(stringResource(filter.titleResId)) },
                     leadingIcon = {
                         Icon(
                             imageVector = filter.icon,
@@ -251,7 +251,7 @@ fun FilesScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Recent Files",
+                text = stringResource(R.string.files_recent_title),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -301,12 +301,12 @@ fun FilesScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "No recent files",
+                        text = stringResource(R.string.files_empty_title),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "Open a document to see it here",
+                        text = stringResource(R.string.files_empty_subtitle),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )

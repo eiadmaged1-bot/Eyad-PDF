@@ -1,4 +1,5 @@
-Eyad PDF Android v0.12.0
-Workspace Rebuild
-Official icon verified by SHA-256
-Offline open-source debug build
+Eyad PDF Android v0.15.0
+Consolidated release candidate
+Application ID: com.eyadpdf.android
+Offline open-source flavor
+Scroll-aware tablet and phone workspace

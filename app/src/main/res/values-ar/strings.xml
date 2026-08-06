@@ -590,4 +590,21 @@
     <string name="split_from">من</string>
     <string name="split_to">إلى</string>
     <string name="split_page_numbers">أرقام الصفحات</string>
+
+    <!-- Eyad PDF v0.15 adaptive workspace -->
+    <string name="premium_private_workspace">مساحة عملك الخاصة للمستندات</string>
+    <string name="premium_offline_private_tools">دون اتصال • خاص • %1$d أداة</string>
+    <string name="premium_search_tools">ابحث في جميع أدوات PDF</string>
+    <string name="premium_all_tools">كل الأدوات</string>
+    <string name="premium_choose_tool_offline">اختر أداة واعمل بالكامل دون اتصال</string>
+    <string name="premium_tool_count">%1$d أداة</string>
+    <string name="files_filter_all">الكل</string>
+    <string name="files_filter_pdf">PDF</string>
+    <string name="files_subtitle">الوصول إلى مستنداتك الأخيرة</string>
+    <string name="files_open_pdf_title">فتح مستند PDF</string>
+    <string name="files_open_pdf_subtitle">تصفح ملفات PDF وفتحها</string>
+    <string name="files_recent_title">الملفات الأخيرة</string>
+    <string name="files_empty_title">لا توجد ملفات أخيرة</string>
+    <string name="files_empty_subtitle">افتح مستندًا ليظهر هنا</string>
+
 </resources>

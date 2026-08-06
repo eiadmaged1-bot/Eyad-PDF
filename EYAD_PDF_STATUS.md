@@ -1,16 +1,17 @@
-# Eyad PDF Android Workspace Rebuild
+# Eyad PDF Android v0.15
 
-Baseline imported from `Karna14314/Pdf_Tools` at commit
-`cf8ad122707ca63078b5c78f3e02685e2a069b50` under Apache-2.0.
+This release candidate consolidates the physical-tablet review, council audit, identity cleanup, localization cleanup and release automation into one branch.
 
-Current engineering priorities:
+## Frozen behavior
 
-1. Premium adaptive phone/tablet dashboard.
-2. Full tool catalogue with honest readiness states.
-3. Exact-finger floating-overlay page drag.
-4. Multi-page block movement and edge auto-scroll.
-5. Offline Arabic/English OCR using PaddleOCR/ONNX.
-6. Automated APK, lint, privacy and output validation gates.
+- The main app bar hides while scrolling down and returns on upward scroll.
+- The hero, search and section heading scroll with the tool catalogue.
+- Tools/Files navigation does not use a translucent cross-fade.
+- PDF processing remains local and the open-source flavor has no INTERNET permission.
 
-The donor's arrow-based reorder screen is not accepted as the final
-Eyad PDF touch interaction and will be replaced.
+## Release identity
+
+- Application ID: `com.eyadpdf.android`
+- Version name: `0.15.0`
+- Version code: `215`
+- Permanent updates require the same protected release keystore for every APK.

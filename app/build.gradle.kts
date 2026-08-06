@@ -13,7 +13,7 @@ android {
     ndkVersion = "28.0.12433510"
 
     defaultConfig {
-        applicationId = "com.yourname.pdftoolkit"
+        applicationId = "com.eyadpdf.android"
         minSdk = 26
         targetSdk = 36
         // Version code and name are read from gradle.properties for F-Droid compatibility
@@ -53,7 +53,6 @@ android {
                 println("KEY_ALIAS present: ${!kAlias.isNullOrEmpty()}")
                 println("KEY_PASSWORD present: ${!kKeyPassword.isNullOrEmpty()}")
                 // Mask alias for safety in logs though usually public
-                println("KEY_ALIAS value: '${if (kAlias.isNullOrEmpty()) "null/empty" else kAlias}'") 
                 
                 if (!kPassword.isNullOrEmpty() && !kAlias.isNullOrEmpty() && !kKeyPassword.isNullOrEmpty()) {
                     storePassword = kPassword
@@ -205,7 +204,7 @@ android {
             val outputImpl = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
             if (variant.buildType.name == "release" && variant.flavorName != "fdroid") {
                 val flavorName = variant.flavorName
-                outputImpl.outputFileName = "pdftoolkit-${flavorName}-v${variant.versionName}.apk"
+                outputImpl.outputFileName = "Eyad-PDF-Android-${flavorName}-v${variant.versionName}.apk"
             }
         }
     }
