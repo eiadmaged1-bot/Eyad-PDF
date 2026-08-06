@@ -22,7 +22,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.yourname.pdftoolkit.data.SafUriManager
 import com.yourname.pdftoolkit.ui.navigation.AppNavigation
-import com.yourname.pdftoolkit.ui.theme.Eyad PDFTheme
+import com.yourname.pdftoolkit.ui.theme.EyadPdfTheme
 import com.yourname.pdftoolkit.util.CacheManager
 import com.yourname.pdftoolkit.util.RatingManager
 import com.yourname.pdftoolkit.util.ReviewHelper
@@ -82,7 +82,7 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "onCreate: After handleIntent, pendingPdfUri=$pendingPdfUri, pendingPdfName=$pendingPdfName, pendingIsLoading=$pendingIsLoading")
         
         setContent {
-            Eyad PDFTheme {
+            EyadPdfTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
