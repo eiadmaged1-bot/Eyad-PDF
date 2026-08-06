@@ -1,0 +1,74 @@
+name: Rebuild Official Eyad PDF Icon
+
+on:
+  push:
+    branches: [ android/workspace-rebuild-v0.12 ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild-icon:
+    if: ${{ hashFiles('branding/icon_base64/part01.txt') != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reconstruct and verify exact selected icon
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat branding/icon_base64/part01.txt \
+              branding/icon_base64/part02.txt \
+              branding/icon_base64/part03.txt | base64 --decode > /tmp/eyad_pdf_icon.png
+          echo '533e5e026b9f243540ab5da95522aecd7563fccbd1ef6cbe0f9f7bb7972ea431  /tmp/eyad_pdf_icon.png' | sha256sum --check --strict
+
+      - name: Install image tooling
+        run: python3 -m pip install --disable-pip-version-check pillow
+
+      - name: Generate all Android launcher densities
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+
+          source = Image.open('/tmp/eyad_pdf_icon.png').convert('RGBA')
+          source.load()
+          assert source.size == (48, 48), source.size
+
+          targets = {
+              'mipmap-mdpi': 48,
+              'mipmap-hdpi': 72,
+              'mipmap-xhdpi': 96,
+              'mipmap-xxhdpi': 144,
+              'mipmap-xxxhdpi': 192,
+          }
+
+          for folder, size in targets.items():
+              destination = Path('app/src/main/res') / folder
+              destination.mkdir(parents=True, exist_ok=True)
+              icon = source.resize((size, size), Image.Resampling.LANCZOS)
+              icon.save(destination / 'ic_launcher.png', optimize=True)
+              icon.save(destination / 'ic_launcher_round.png', optimize=True)
+          PY
+
+      - name: Remove transport chunks and one-time workflow
+        shell: bash
+        run: |
+          rm -rf branding/icon_base64
+          rmdir branding 2>/dev/null || true
+          rm -f .github/workflows/rebuild-official-icon.yml
+
+      - name: Commit verified official icon
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Eyad PDF Build Bot'
+          git config user.email 'eiadmaged1@gmail.com'
+          git add -A
+          git commit -m 'Apply verified official Eyad PDF Android icon'
+          git push origin android/workspace-rebuild-v0.12
