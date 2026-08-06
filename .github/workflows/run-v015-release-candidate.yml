@@ -1,0 +1,34 @@
+name: Run v0.15 Release Candidate Patch
+
+on:
+  push:
+    branches:
+      - android/release-candidate-v0.15
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: android/release-candidate-v0.15
+          fetch-depth: 0
+
+      - name: Apply consolidated council patch
+        run: python3 tools/apply_v015_release_candidate.py
+
+      - name: Commit v0.15 release candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f tools/apply_v015_release_candidate.py
+          rm -f .github/workflows/run-v015-release-candidate.yml
+          git config user.name 'Eyad PDF Build Bot'
+          git config user.email 'eiadmaged1@gmail.com'
+          git add -A
+          git commit -m 'Build consolidated Eyad PDF Android v0.15 release candidate'
+          git push origin android/release-candidate-v0.15
