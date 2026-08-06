@@ -1,0 +1,70 @@
+name: Apply Eyad PDF App Icon
+
+on:
+  push:
+    branches: [ android/workspace-rebuild-v0.12 ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-icon:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect pending icon source
+        id: icon
+        shell: bash
+        run: |
+          if [ -f branding/eyad_pdf_icon_source.png ]; then
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install image tooling
+        if: steps.icon.outputs.needed == 'true'
+        run: python3 -m pip install --disable-pip-version-check pillow
+
+      - name: Generate Android launcher sizes
+        if: steps.icon.outputs.needed == 'true'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+
+          source = Image.open('branding/eyad_pdf_icon_source.png').convert('RGBA')
+          targets = {
+              'mipmap-mdpi': 48,
+              'mipmap-hdpi': 72,
+              'mipmap-xhdpi': 96,
+              'mipmap-xxhdpi': 144,
+              'mipmap-xxxhdpi': 192,
+          }
+
+          for folder, size in targets.items():
+              destination = Path('app/src/main/res') / folder
+              destination.mkdir(parents=True, exist_ok=True)
+              resized = source.resize((size, size), Image.Resampling.LANCZOS)
+              resized.save(destination / 'ic_launcher.png', optimize=True)
+              resized.save(destination / 'ic_launcher_round.png', optimize=True)
+          PY
+
+          rm branding/eyad_pdf_icon_source.png
+          rmdir branding 2>/dev/null || true
+
+      - name: Commit official icon assets
+        if: steps.icon.outputs.needed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Eyad PDF Build Bot'
+          git config user.email 'eiadmaged1@gmail.com'
+          git add -A app/src/main/res/mipmap-* branding || true
+          git commit -m 'Apply official Eyad PDF Android icon'
+          git push origin android/workspace-rebuild-v0.12
