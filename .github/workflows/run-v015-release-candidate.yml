@@ -23,11 +23,14 @@ jobs:
         shell: pwsh
         run: python tools/apply_v015_release_candidate.py
 
-      - name: Commit v0.15 release candidate
+      - name: Commit non-workflow release changes
         shell: pwsh
         run: |
+          git checkout -- .github/workflows/android-quality-gate.yml
+          if (Test-Path .github/workflows/android-signed-release.yml) {
+            Remove-Item .github/workflows/android-signed-release.yml -Force
+          }
           Remove-Item tools/apply_v015_release_candidate.py -Force
-          Remove-Item .github/workflows/run-v015-release-candidate.yml -Force
           git config user.name 'Eyad PDF Build Bot'
           git config user.email 'eiadmaged1@gmail.com'
           git add -A
