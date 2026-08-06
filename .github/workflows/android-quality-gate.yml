@@ -12,13 +12,24 @@ permissions:
 
 jobs:
   build-and-verify:
-    if: ${{ hashFiles('gradlew') != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
+      - name: Detect Android project
+        id: project
+        shell: bash
+        run: |
+          if [ -f gradlew ] && [ -f app/build.gradle.kts ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Android project has not been imported yet; quality gate is waiting."
+          fi
+
       - name: Set up JDK 17
+        if: steps.project.outputs.ready == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -26,6 +37,7 @@ jobs:
           cache: gradle
 
       - name: Verify fully offline manifest policy
+        if: steps.project.outputs.ready == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -35,12 +47,14 @@ jobs:
           fi
 
       - name: Build open-source offline APK
+        if: steps.project.outputs.ready == 'true'
         shell: bash
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon :app:lintOpensourceDebug :app:assembleOpensourceDebug
 
       - name: Prepare named APK artifact
+        if: steps.project.outputs.ready == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -51,6 +65,7 @@ jobs:
           sha256sum artifacts/Eyad-PDF-Android-v0.11.0-debug.apk > artifacts/Eyad-PDF-Android-v0.11.0-debug.apk.sha256
 
       - name: Upload Eyad PDF APK
+        if: steps.project.outputs.ready == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: Eyad-PDF-Android-v0.11.0-debug
