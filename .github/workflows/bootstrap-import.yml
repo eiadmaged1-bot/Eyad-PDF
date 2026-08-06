@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   import-source:
-    if: ${{ !contains(github.event.head_commit.message, '[bootstrap complete]') && hashFiles('app/build.gradle.kts') == '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Eyad PDF
@@ -18,7 +17,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check whether source import is required
+        id: source
+        shell: bash
+        run: |
+          if [ -f app/build.gradle.kts ]; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "Android source already exists; bootstrap will not run again."
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Import pinned offline PDF donor source
+        if: steps.source.outputs.needed == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -31,6 +42,7 @@ jobs:
             /tmp/pdf-tools/ ./
 
       - name: Apply Eyad PDF identity and offline policy
+        if: steps.source.outputs.needed == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -72,6 +84,7 @@ jobs:
           EOF
 
       - name: Commit imported source
+        if: steps.source.outputs.needed == 'true'
         shell: bash
         run: |
           set -euo pipefail
