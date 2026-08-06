@@ -2,7 +2,8 @@ name: Apply v0.14 Scroll-aware Chrome
 
 on:
   push:
-    branches: [ android/ui-modernization-v0.14 ]
+    branches:
+      - android/ui-modernization-v0.14
   workflow_dispatch:
 
 permissions:
@@ -17,185 +18,14 @@ jobs:
           ref: android/ui-modernization-v0.14
           fetch-depth: 0
 
-      - name: Make app chrome and home header scroll-aware
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
+      - name: Apply reviewed screen-recording changes
+        run: python3 tools/apply_v014_scroll_patch.py
 
-          home = Path('app/src/main/java/com/yourname/pdftoolkit/ui/screens/PremiumToolsScreen.kt')
-          text = home.read_text(encoding='utf-8')
-
-          text = text.replace(
-              'import androidx.compose.foundation.lazy.grid.GridCells\n',
-              'import androidx.compose.foundation.lazy.grid.GridCells\nimport androidx.compose.foundation.lazy.grid.GridItemSpan\n',
-              1,
-          )
-
-          start = text.index('            Column(\n                modifier = Modifier\n                    .fillMaxSize()\n                    .padding(horizontal = if (expanded) 28.dp else 16.dp),\n            ) {')
-          end = text.index('\n            }\n        }\n    }\n}\n\n@Composable\nprivate fun WorkspaceHero', start)
-
-          replacement = '''            LazyVerticalGrid(
-                columns = GridCells.Adaptive(if (expanded) 236.dp else 172.dp),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = if (expanded) 28.dp else 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(if (expanded) 16.dp else 12.dp),
-                verticalArrangement = Arrangement.spacedBy(if (expanded) 16.dp else 12.dp),
-                contentPadding = PaddingValues(bottom = 34.dp),
-            ) {
-                item(span = { GridItemSpan(maxLineSpan) }, key = "workspace_hero") {
-                    WorkspaceHero(
-                        toolCount = resolvedTools.size,
-                        expanded = expanded,
-                        onOpenPdf = { openPdf.launch(arrayOf("application/pdf")) },
-                    )
-                }
-
-                item(span = { GridItemSpan(maxLineSpan) }, key = "tool_search") {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(58.dp),
-                        singleLine = true,
-                        shape = RoundedCornerShape(20.dp),
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        placeholder = { Text("Search all PDF tools") },
-                        trailingIcon = {
-                            if (query.isNotEmpty()) {
-                                IconButton(onClick = { query = "" }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear search")
-                                }
-                            }
-                        },
-                    )
-                }
-
-                if (!expanded) {
-                    item(span = { GridItemSpan(maxLineSpan) }, key = "tool_filters") {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                            item {
-                                FilterChip(
-                                    selected = selectedSection == null,
-                                    onClick = { selectedSection = null },
-                                    label = { Text("All tools") },
-                                )
-                            }
-                            items(premiumSections, key = { it.name }) { section ->
-                                FilterChip(
-                                    selected = selectedSection == section,
-                                    onClick = { selectedSection = section },
-                                    label = { Text(sectionLabel(section)) },
-                                )
-                            }
-                        }
-                    }
-                }
-
-                item(span = { GridItemSpan(maxLineSpan) }, key = "section_heading_${selectedSection?.name ?: "all"}") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Column {
-                            Text(
-                                text = sectionLabel(selectedSection),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Text(
-                                text = "Choose a tool and work completely offline",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(999.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                        ) {
-                            Text(
-                                text = "${visibleTools.size} tools",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.padding(horizontal = 13.dp, vertical = 7.dp),
-                            )
-                        }
-                    }
-                }
-
-                items(visibleTools, key = { it.source.id }) { tool ->
-                    PremiumToolCard(
-                        tool = tool,
-                        expanded = expanded,
-                        onClick = { openTool(tool.source) },
-                    )
-                }
-            }'''
-
-          text = text[:start] + replacement + text[end:]
-          home.write_text(text, encoding='utf-8')
-
-          nav = Path('app/src/main/java/com/yourname/pdftoolkit/ui/navigation/AppNavigation.kt')
-          text = nav.read_text(encoding='utf-8')
-
-          text = text.replace(
-              'import androidx.compose.ui.Modifier\n',
-              'import androidx.compose.ui.Modifier\nimport androidx.compose.ui.input.nestedscroll.nestedScroll\n',
-              1,
-          )
-
-          marker = '''    val showTopBar = currentRoute in listOf(
-        Screen.Tools.route,
-        Screen.Files.route
-    )
-'''
-          insert = marker + '''
-    // Hide the main app bar while content moves down the screen, then reveal it
-    // immediately when the user reverses direction. This returns vertical space
-    // to the tool grid without making navigation controls hard to recover.
-    val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-
-    LaunchedEffect(currentRoute) {
-        topBarScrollBehavior.state.heightOffset = 0f
-        topBarScrollBehavior.state.contentOffset = 0f
-    }
-'''
-          if marker not in text:
-              raise SystemExit('showTopBar marker not found')
-          text = text.replace(marker, insert, 1)
-
-          text = text.replace(
-              '    Scaffold(\n        modifier = Modifier.fillMaxSize(),',
-              '    Scaffold(\n        modifier = Modifier\n            .fillMaxSize()\n            .nestedScroll(topBarScrollBehavior.nestedScrollConnection),',
-              1,
-          )
-
-          topbar_anchor = '''                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
-                )
-'''
-          topbar_replacement = '''                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        scrolledContainerColor = MaterialTheme.colorScheme.surface,
-                    ),
-                    scrollBehavior = topBarScrollBehavior,
-                )
-'''
-          if topbar_anchor not in text:
-              raise SystemExit('TopAppBar anchor not found')
-          text = text.replace(topbar_anchor, topbar_replacement, 1)
-
-          nav.write_text(text, encoding='utf-8')
-          PY
-
-      - name: Remove migration and commit
+      - name: Commit scroll-aware chrome
         shell: bash
         run: |
           set -euo pipefail
+          rm -f tools/apply_v014_scroll_patch.py
           rm -f .github/workflows/apply-v014-scroll-aware-chrome.yml
           git config user.name 'Eyad PDF Build Bot'
           git config user.email 'eiadmaged1@gmail.com'
