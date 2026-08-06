@@ -36,8 +36,11 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          from PIL import Image
+          from PIL import Image, ImageFile
 
+          # The source travelled through GitHub's blob API. Permit Pillow to
+          # recover a valid preview even when the PNG terminator is absent.
+          ImageFile.LOAD_TRUNCATED_IMAGES = True
           source = Image.open('branding/eyad_pdf_icon_source.png').convert('RGBA')
           targets = {
               'mipmap-mdpi': 48,
