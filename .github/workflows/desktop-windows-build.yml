@@ -1,0 +1,110 @@
+name: Eyad PDF Desktop Windows Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - desktop/conversion-recovery-v0.11.0
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/desktop-windows-build.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eyad-pdf-desktop-v011
+  cancel-in-progress: true
+
+jobs:
+  build-and-verify:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: desktop/requirements-build.txt
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r desktop/requirements-build.txt
+
+      - name: Core regression tests
+        shell: pwsh
+        run: python -m pytest -q desktop/tests
+
+      - name: Build Eyad PDF EXE
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force desktop/build | Out-Null
+          python -c "from PIL import Image; im=Image.open(r'app/src/main/res/mipmap-xxxhdpi/ic_launcher.png').convert('RGBA'); im.save(r'desktop/build/eyad_pdf.ico', sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])"
+          python -m PyInstaller --noconfirm --clean --distpath desktop/dist --workpath desktop/build/pyinstaller desktop/EyadPDF.spec
+          if (-not (Test-Path 'desktop/dist/Eyad PDF.exe')) { throw 'Eyad PDF.exe was not produced.' }
+
+      - name: Install LibreOffice for fidelity smoke
+        shell: pwsh
+        run: |
+          choco install libreoffice-fresh -y --no-progress
+          if ($LASTEXITCODE -ne 0) {
+            choco install libreoffice -y --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'LibreOffice installation failed.' }
+          }
+
+      - name: Create 4-slide PowerPoint regression input
+        shell: pwsh
+        run: |
+          @'
+          from pptx import Presentation
+          from pptx.util import Inches, Pt
+          from pptx.dml.color import RGBColor
+          from pathlib import Path
+          p = Path('desktop/build/ci-fidelity.pptx')
+          prs = Presentation()
+          prs.slide_width = Inches(13.333333)
+          prs.slide_height = Inches(7.5)
+          for i in range(4):
+              slide = prs.slides.add_slide(prs.slide_layouts[6])
+              shape = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(11), Inches(2))
+              run = shape.text_frame.paragraphs[0].add_run()
+              run.text = f'Eyad PDF fidelity slide {i+1}'
+              run.font.size = Pt(34)
+              run.font.color.rgb = RGBColor(40,84,199)
+          prs.save(p)
+          print(p)
+          '@ | Set-Content desktop/build/create_ci_pptx.py -Encoding utf8
+          python desktop/build/create_ci_pptx.py
+
+      - name: Real conversion-path smoke (PPTX 4 slides -> PDF 4 pages)
+        shell: pwsh
+        env:
+          PYTHONPATH: desktop
+        run: |
+          $soffice = Get-ChildItem 'C:\Program Files\LibreOffice\program\soffice.exe','C:\Program Files (x86)\LibreOffice\program\soffice.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $soffice) { throw 'LibreOffice soffice.exe not found after install.' }
+          $env:SOFFICE_PATH = $soffice.FullName
+          python desktop/tests/smoke_real_pptx.py desktop/build/ci-fidelity.pptx desktop/build/ci-output
+
+      - name: Prepare release package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force desktop/READY_TO_USE | Out-Null
+          Copy-Item 'desktop/dist/Eyad PDF.exe' 'desktop/READY_TO_USE/Eyad PDF.exe' -Force
+          $hash = (Get-FileHash 'desktop/READY_TO_USE/Eyad PDF.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  Eyad PDF.exe" | Set-Content 'desktop/READY_TO_USE/Eyad PDF.exe.sha256' -Encoding ascii
+
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v7
+        with:
+          name: Eyad-PDF-Desktop-v0.11.0-Windows-EXE
+          path: |
+            desktop/READY_TO_USE/Eyad PDF.exe
+            desktop/READY_TO_USE/Eyad PDF.exe.sha256
+          if-no-files-found: error
+          retention-days: 30
