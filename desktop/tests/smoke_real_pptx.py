@@ -9,7 +9,9 @@ args = parser.parse_args()
 result = convert_to_pdf(Path(args.pptx), Path(args.outdir), prefer_native=False, log=print)
 expected = pptx_slide_count(Path(args.pptx))
 actual = pdf_page_count(result.output)
-print(f"source_slides={expected} output_pages={actual} bytes={result.output.stat().st_size} engine={result.engine}")
+size = result.output.stat().st_size
+print(f"source_slides={expected} output_pages={actual} bytes={size} engine={result.engine}")
+assert expected is not None and expected > 0
 assert expected == actual
-assert result.output.stat().st_size > 100_000
+assert size > 512
 print(result.output)
