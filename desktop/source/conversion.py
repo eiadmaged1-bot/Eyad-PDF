@@ -42,6 +42,7 @@ def _which_soffice() -> str | None:
                     str(Path(root) / "LibreOffice" / "program" / "soffice.exe"),
                     str(Path(root) / "LibreOffice 24" / "program" / "soffice.exe"),
                     str(Path(root) / "LibreOffice 25" / "program" / "soffice.exe"),
+                    str(Path(root) / "LibreOffice 26" / "program" / "soffice.exe"),
                 ])
     for candidate in candidates:
         if candidate and Path(candidate).exists():
@@ -251,7 +252,7 @@ def convert_to_pdf(source: str | Path, output_dir: str | Path, *, prefer_native:
         if produced.resolve() != target.resolve():
             produced.replace(target)
         if log:
-            log(f"Verified {pages} page(s) → {target}")
+            log(f"Verified {pages} page(s) -> {target}")
         return ConversionResult(source, target, engine, pages)
     except Exception:
         produced.unlink(missing_ok=True)
@@ -296,7 +297,7 @@ def convert_and_merge(sources: Iterable[str | Path], output: str | Path, *, log:
                 result = convert_to_pdf(source, temp_dir, log=log)
                 converted.append(result.output)
         if log:
-            log(f"Merging {len(converted)} document(s) in list order…")
+            log(f"Merging {len(converted)} document(s) in list order...")
         merged = merge_pdfs(converted, output)
         if log:
             log(f"Verified merged output: {merged}")
