@@ -1,0 +1,15 @@
+EYAD PDF DESKTOP v0.11.0 — CONVERSION RECOVERY
+
+Recommended:
+1. Open READY_TO_USE.
+2. Run Eyad PDF.exe directly, OR run INSTALL_OR_UPDATE.bat to place it under LocalAppData and create shortcuts.
+
+Converter workflow:
+- Drop files into the file list.
+- Reorder them by dragging rows.
+- Keep “Save output in the same folder as each input file” checked, or choose another output folder.
+- Convert = one PDF per source.
+- Convert & Merge = convert all non-PDF inputs, then merge everything in the visible list order.
+
+PPTX safety:
+Eyad PDF no longer reconstructs PowerPoint text with ReportLab. It uses Microsoft PowerPoint native PDF export when available, with LibreOffice as fallback. PPTX slide count is verified against output PDF page count; mismatches are rejected.
