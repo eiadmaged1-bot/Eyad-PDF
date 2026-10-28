@@ -39,6 +39,7 @@ jobs:
           echo "efbb203bf72545d513c4a9b89e2e6be8f1d849874badde20086014e4e3cb93cd  v030.overlay.tar.xz" | sha256sum -c -
           tar -xJf v030.overlay.tar.xz
           sed -i 's/b.setTextAllCaps(false);/b.setAllCaps(false);/' app/src/main/java/com/squeezelab/video/StudioActivity.java
+          sed -i 's/setTypeface(null, 1)/setTypeface(null, android.graphics.Typeface.BOLD)/g' app/src/main/java/com/squeezelab/video/StudioActivity.java
           sed -i '/public final class CompressionService extends Service/i @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)' app/src/main/java/com/squeezelab/video/CompressionService.java
           test -f app/src/main/res/layout-w840dp/activity_main.xml
           grep -q "versionName '0.3.0'" app/build.gradle
