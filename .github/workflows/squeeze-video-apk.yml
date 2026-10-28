@@ -22,9 +22,10 @@ jobs:
         with:
           gradle-version: '8.13'
           validate-wrappers: false
-      - uses: android-actions/setup-android@v3
       - name: Install Android SDK
-        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+        run: |
+          command -v sdkmanager
+          sdkmanager "platforms;android-36" "build-tools;35.0.0"
       - name: Unpack isolated Squeeze Video project
         run: |
           cd squeeze-video
