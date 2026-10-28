@@ -47,6 +47,15 @@ jobs:
           grep -q "versionName '0.4.0'" app/build.gradle
           grep -q 'Smart compression' app/src/main/res/layout/section_controls.xml
           cat v050-part-{01,02,03}.txt | base64 -d | xz -d > v050-upgrade.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("v050-upgrade.py")
+          s=p.read_text()
+          original="edit('StudioActivity.java','''        restore();\n        if (saved != null) {''','''        restore();\n"
+          revised="edit('StudioActivity.java','''        if (saved != null) {''','''"
+          if original not in s: raise SystemExit("Expected startup adjustment not found")
+          p.write_text(s.replace(original,revised,1))
+          PY
           python3 v050-upgrade.py
           grep -q "versionName '0.5.0'" app/build.gradle
           test -f app/src/main/java/com/squeezelab/video/StudioBranding.java
