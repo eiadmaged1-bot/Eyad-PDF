@@ -59,14 +59,11 @@ jobs:
           python3 v050-upgrade.py
           grep -q "versionName '0.5.0'" app/build.gradle
           test -f app/src/main/java/com/squeezelab/video/StudioBranding.java
-      - name: Export recovered editable v0.5 source
-        run: |
-          tar -czf "$RUNNER_TEMP/SqueezeVideo-v0.5.0-source.tar.gz" -C squeeze-video app build.gradle settings.gradle gradle.properties
-      - uses: actions/upload-artifact@v4
-        with:
-          name: SqueezeVideo-v0.5.0-source-for-v0.6
-          path: ${{ runner.temp }}/SqueezeVideo-v0.5.0-source.tar.gz
-          retention-days: 5
+          cat v060-part-{01,02,03,04,05}.txt | base64 -d > v060.patch.xz
+          echo "e86acb411d6a880a69691ba699582a7a97ec0657bf34f59d4ff521e2a877c3ba  v060.patch.xz" | sha256sum -c -
+          xz -d -c v060.patch.xz | patch -p1
+          grep -q "versionName '0.6.0'" app/build.gradle
+          test -f app/src/main/java/com/squeezelab/video/OverlayPlacement.java
       - name: Run tests and assemble APK
         working-directory: squeeze-video
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
@@ -78,7 +75,7 @@ jobs:
           sha256sum "$APK" | tee squeeze-video/APK_SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: SqueezeVideo-v0.5.0-debug-APK
+          name: SqueezeVideo-v0.6.0-debug-APK
           path: |
             squeeze-video/app/build/outputs/apk/debug/app-debug.apk
             squeeze-video/APK_SHA256.txt
