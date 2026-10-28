@@ -1,7 +1,7 @@
 name: Squeeze Video APK
 on:
   push:
-    branches: [squeeze-video-v0.6]
+    branches: [squeeze-video-v0.7-efficiency]
     paths:
       - '.github/workflows/squeeze-video-apk.yml'
       - 'squeeze-video/**'
@@ -64,6 +64,20 @@ jobs:
           xz -d -c v060.patch.xz | patch -p1
           grep -q "versionName '0.6.0'" app/build.gradle
           test -f app/src/main/java/com/squeezelab/video/OverlayPlacement.java
+          cat v070-efficiency-part-{01,02,03}.txt | base64 -d > v070-efficiency.patch.xz
+          echo "f298238fcdfe4ef7efefb90368197ae362fff8dcfd397cbd45adb94035feb4f1  v070-efficiency.patch.xz" | sha256sum -c -
+          xz -dc v070-efficiency.patch.xz | patch -p1
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          p=Path('app/build.gradle');s=p.read_text()
+          assert "versionName '0.6.0'" in s
+          s=s.replace("versionName '0.6.0'","versionName '0.7.0'")
+          s=re.sub(r"versionCode\s+\d+","versionCode 8",s)
+          p.write_text(s)
+          PY
+          grep -q "versionName '0.7.0'" app/build.gradle
+          test -f app/src/main/java/com/squeezelab/video/EfficiencyPolicy.java
       - name: Run tests and assemble APK
         working-directory: squeeze-video
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
@@ -75,7 +89,7 @@ jobs:
           sha256sum "$APK" | tee squeeze-video/APK_SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: SqueezeVideo-v0.6.0-debug-APK
+          name: SqueezeVideo-v0.7.0-debug-APK
           path: |
             squeeze-video/app/build/outputs/apk/debug/app-debug.apk
             squeeze-video/APK_SHA256.txt
