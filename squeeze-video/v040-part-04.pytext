@@ -1,0 +1,45 @@
+        hevc.setEnabled(available);hevc.setChecked(hevcEnabled && available);panel.addView(hevc);
+        panel.addView(text("Output size is approximate. Original videos stay unchanged.",12,MUTED));
+        new AlertDialog.Builder(this).setTitle("Smart export")
+            .setView(panel).setNegativeButton("Cancel",null)
+            .setPositiveButton("Apply",(d,w)->{
+                if(target.isChecked())try{SmartCompression.parseMb(mb.getText().toString());}
+                catch(IllegalArgumentException ex){toast(ex.getMessage());return;}
+                smartEnabled=target.isChecked();smartMb=mb.getText().toString();
+                hevcEnabled=available && hevc.isChecked();
+                getPreferences(MODE_PRIVATE).edit().putBoolean("smart_enabled",smartEnabled)
+                    .putBoolean("smart_hevc",hevcEnabled).putString("smart_mb",smartMb).apply();
+            }).show();
+    }
+
+    private String qualityName() {''')
+edit('StudioActivity.java','''        long estimated = CompressionMath.estimatedBytes(totalDuration(), bitrate[quality], audio[quality]);''','''        int videoBps=bitrate[quality];
+        if(smartEnabled)try {
+            SmartCompression.Plan plan=SmartCompression.plan(SmartCompression.parseMb(smartMb),
+                    totalDuration(),audio[quality],0);
+            videoBps=plan.videoBitrate;
+            if(plan.limited)toast("Target limited by encoder bitrate; size may differ.");
+        } catch(IllegalArgumentException ex){toast(ex.getMessage());return;}
+        long estimated = CompressionMath.estimatedBytes(totalDuration(), videoBps, audio[quality]);''')
+edit('StudioActivity.java','''        intent.putExtra(CompressionService.EXTRA_VIDEO_BITRATE, bitrate[quality]);''','''        intent.putExtra(CompressionService.EXTRA_VIDEO_BITRATE, videoBps);
+        intent.putExtra(CompressionService.EXTRA_HEVC, hevcEnabled);''')
+
+f=Path('app/build.gradle');s=f.read_text()
+assert "versionName '0.3.0'" in s
+f.write_text(s.replace('versionCode 4','versionCode 5').replace("versionName '0.3.0'","versionName '0.4.0'"))
+
+f=Path('app/src/test/java/com/squeezelab/video/SmartCompressionTest.java')
+f.write_text('''package com.squeezelab.video;
+import org.junit.Test;
+import static org.junit.Assert.*;
+public class SmartCompressionTest {
+ @Test public void target20Mb(){SmartCompression.Plan p=SmartCompression.plan(20,60000,96000,6000000);
+  assertTrue(p.videoBitrate>2300000 && p.videoBitrate<2600000);assertFalse(p.limited);}
+ @Test public void verySmallTargetClamps(){SmartCompression.Plan p=SmartCompression.plan(1,300000,128000,5000000);
+  assertEquals(220000,p.videoBitrate);assertTrue(p.limited);}
+ @Test public void respectsSourceRate(){SmartCompression.Plan p=SmartCompression.plan(500,60000,96000,1000000);
+  assertTrue(p.videoBitrate<=720000);}
+ @Test(expected=IllegalArgumentException.class) public void rejectInvalid(){SmartCompression.parseMb("NaN");}
+}
+''')
+print('v0.4.0 smart upgrade installed')

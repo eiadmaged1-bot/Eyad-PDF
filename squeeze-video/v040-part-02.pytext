@@ -1,0 +1,52 @@
+            android:layout_height="wrap_content" android:minHeight="48dp"
+            android:text="Target file size (MB)" />
+        <EditText android:id="@+id/targetMb" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:minHeight="48dp" android:singleLine="true"
+            android:inputType="numberDecimal" android:maxLength="8" android:text="25"
+            android:hint="Target MB · e.g. 25" />
+        <CheckBox android:id="@+id/useHevc" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:minHeight="48dp"
+            android:text="H.265 / HEVC · smaller, less compatible" />
+        <TextView android:id="@+id/smartNote" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:textSize="12sp" android:textColor="@color/muted"
+            android:text="Target is approximate, not an exact file-size guarantee." />
+    </LinearLayout>
+'''+s[pos:]
+f.write_text(s)
+
+edit('MainActivity.java','import android.widget.Button;','import android.widget.Button;\nimport android.widget.CheckBox;\nimport android.widget.EditText;\nimport android.text.Editable;\nimport android.text.TextWatcher;')
+edit('MainActivity.java','    private RadioGroup qualityGroup;','    private RadioGroup qualityGroup;\n    private CheckBox targetSwitch, hevcSwitch;\n    private EditText targetInput;\n    private TextView smartNote;')
+edit('MainActivity.java','        qualityGroup = findViewById(R.id.qualityGroup);','''        qualityGroup = findViewById(R.id.qualityGroup);
+        targetSwitch = findViewById(R.id.targetEnabled);
+        targetInput = findViewById(R.id.targetMb);
+        hevcSwitch = findViewById(R.id.useHevc);
+        smartNote = findViewById(R.id.smartNote);
+        hevcSwitch.setEnabled(CodecSupport.hevcAvailable());
+        if (!hevcSwitch.isEnabled()) hevcSwitch.setText("H.265 not available on this device");
+        targetInput.setEnabled(false);
+        targetSwitch.setOnCheckedChangeListener((v,on)->{targetInput.setEnabled(on);updateEstimate();refreshUi();});
+        hevcSwitch.setOnCheckedChangeListener((v,on)->updateEstimate());
+        targetInput.addTextChangedListener(new TextWatcher(){
+            public void beforeTextChanged(CharSequence s,int start,int count,int after){}
+            public void onTextChanged(CharSequence s,int start,int before,int count){updateEstimate();refreshUi();}
+            public void afterTextChanged(Editable s){}
+        });''')
+edit('MainActivity.java','            qualityGroup.check(quality);','''            qualityGroup.check(quality);
+            targetSwitch.setChecked(state.getBoolean("smart_enabled",false));
+            targetInput.setText(state.getString("smart_mb","25"));
+            hevcSwitch.setChecked(state.getBoolean("smart_hevc",false) && hevcSwitch.isEnabled());''')
+edit('MainActivity.java','        state.putInt(STATE_QUALITY, qualityGroup.getCheckedRadioButtonId());','''        state.putInt(STATE_QUALITY, qualityGroup.getCheckedRadioButtonId());
+        state.putBoolean("smart_enabled",targetSwitch.isChecked());
+        state.putString("smart_mb",targetInput.getText().toString());
+        state.putBoolean("smart_hevc",hevcSwitch.isChecked());''')
+edit('MainActivity.java','    private int currentBitrate() {','''    private SmartCompression.Plan targetPlan(){
+        if(videoInfo==null || !targetSwitch.isChecked()) return null;
+        return SmartCompression.plan(SmartCompression.parseMb(targetInput.getText().toString()),
+                videoInfo.durationMs,currentPreset().audioBitrate,videoInfo.totalBitrate);
+    }
+
+    private int currentBitrate() {''')
+edit('MainActivity.java','''        long estimate = CompressionMath.estimatedBytes(videoInfo.durationMs,
+                currentBitrate(), currentPreset().audioBitrate);''','''        long estimate;
+        try {
+            SmartCompression.Plan plan=targetPlan();

@@ -42,15 +42,10 @@ jobs:
           sed -i 's/setTypeface(null, 1)/setTypeface(null, android.graphics.Typeface.BOLD)/g' app/src/main/java/com/squeezelab/video/StudioActivity.java
           sed -i '/public final class CompressionService extends Service/i @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)' app/src/main/java/com/squeezelab/video/CompressionService.java
           test -f app/src/main/res/layout-w840dp/activity_main.xml
-          grep -q "versionName '0.3.0'" app/build.gradle
-      - name: Archive v0.3 source for v0.4 upgrade
-        run: |
-          tar -czf "$RUNNER_TEMP/SqueezeVideo-v0.3.0-source.tar.gz" -C squeeze-video app settings.gradle build.gradle gradle.properties
-      - uses: actions/upload-artifact@v4
-        with:
-          name: SqueezeVideo-v0.3.0-source-for-upgrade
-          path: ${{ runner.temp }}/SqueezeVideo-v0.3.0-source.tar.gz
-          retention-days: 5
+          cat v040-part-{01,02,03,04}.pytext > v040-upgrade.py
+          python3 v040-upgrade.py
+          grep -q "versionName '0.4.0'" app/build.gradle
+          grep -q 'Smart compression' app/src/main/res/layout/section_controls.xml
       - name: Run tests and assemble APK
         working-directory: squeeze-video
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
@@ -62,7 +57,7 @@ jobs:
           sha256sum "$APK" | tee squeeze-video/APK_SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: SqueezeVideo-v0.3.0-debug-APK
+          name: SqueezeVideo-v0.4.0-debug-APK
           path: |
             squeeze-video/app/build/outputs/apk/debug/app-debug.apk
             squeeze-video/APK_SHA256.txt

@@ -1,0 +1,49 @@
+            estimate=plan==null ? CompressionMath.estimatedBytes(videoInfo.durationMs,
+                    currentBitrate(),currentPreset().audioBitrate) : plan.estimatedBytes;
+            smartNote.setText(plan==null ? "Estimated size only · encoder may vary" :
+                    (plan.limited ? "Requested size is outside bitrate limits · approximation only" :
+                    "Target approximate · final size depends on encoder"));
+        } catch (IllegalArgumentException ex){
+            estimateText.setText("Invalid target MB"); smartNote.setText(ex.getMessage()); return;
+        }''')
+edit('MainActivity.java','''        long approximate = CompressionMath.estimatedBytes(videoInfo.durationMs,
+                currentBitrate(), currentPreset().audioBitrate);''','''        SmartCompression.Plan plan;
+        try { plan=targetPlan(); }
+        catch(IllegalArgumentException ex){showLocalError(ex.getMessage());return;}
+        int videoBps=plan==null ? currentBitrate() : plan.videoBitrate;
+        long approximate=CompressionMath.estimatedBytes(videoInfo.durationMs,
+                videoBps,currentPreset().audioBitrate);''')
+edit('MainActivity.java','''        intent.putExtra(CompressionService.EXTRA_VIDEO_BITRATE, currentBitrate());''','''        intent.putExtra(CompressionService.EXTRA_VIDEO_BITRATE, videoBps);
+        intent.putExtra(CompressionService.EXTRA_HEVC, hevcSwitch.isChecked());''')
+edit('MainActivity.java','        compressButton.setEnabled(ready && videoInfo != null);','''        boolean valid = !targetSwitch.isChecked();
+        if(!valid && videoInfo!=null)try { targetPlan();valid=true; }
+        catch(IllegalArgumentException ignored){}
+        compressButton.setEnabled(ready && videoInfo != null && valid);
+        targetSwitch.setEnabled(ready); targetInput.setEnabled(ready && targetSwitch.isChecked());
+        hevcSwitch.setEnabled(ready && CodecSupport.hevcAvailable());''')
+
+edit('StudioActivity.java','import android.widget.Button;','import android.widget.Button;\nimport android.widget.CheckBox;\nimport android.widget.EditText;')
+edit('StudioActivity.java','    private int quality = 1;','    private int quality = 1;\n    private boolean smartEnabled, hevcEnabled;\n    private String smartMb="25";')
+edit('StudioActivity.java','        restore();','''        restore();
+        android.content.SharedPreferences settings=getPreferences(MODE_PRIVATE);
+        smartEnabled=settings.getBoolean("smart_enabled",false);
+        hevcEnabled=settings.getBoolean("smart_hevc",false) && CodecSupport.hevcAvailable();
+        smartMb=settings.getString("smart_mb","25");''')
+edit('StudioActivity.java','        bottomActions.addView(qualityRow, margin(-1, -2, 7));','''        bottomActions.addView(qualityRow, margin(-1, -2, 7));
+        Button smartButton=button("Smart MB / H.265 settings",false);
+        smartButton.setOnClickListener(v->openSmartSettings());
+        bottomActions.addView(smartButton,margin(-1,dp(48),4));''')
+edit('StudioActivity.java','    private String qualityName() {','''    private void openSmartSettings(){
+        if(busy())return;
+        LinearLayout panel=vertical();panel.setPadding(dp(16),dp(8),dp(16),dp(12));
+        CheckBox target=new CheckBox(this);target.setText("Aim for target size in MB");
+        target.setChecked(smartEnabled);panel.addView(target);
+        EditText mb=new EditText(this);mb.setSingleLine(true);mb.setText(smartMb);
+        mb.setHint("MB · e.g. 25");
+        mb.setInputType(android.text.InputType.TYPE_CLASS_NUMBER |
+                android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        mb.setEnabled(smartEnabled);target.setOnCheckedChangeListener((v,b)->mb.setEnabled(b));
+        panel.addView(mb,margin(-1,dp(48),4));
+        CheckBox hevc=new CheckBox(this);
+        boolean available=CodecSupport.hevcAvailable();
+        hevc.setText(available?"H.265 / HEVC · smaller, less compatible":"H.265 unavailable");

@@ -1,0 +1,65 @@
+from pathlib import Path
+p=Path('app/src/main/java/com/squeezelab/video')
+def edit(filename, old, new):
+ f=p/filename
+ s=f.read_text()
+ if old not in s: raise SystemExit(f'Patch anchor missing in {filename}: {old[:80]}')
+ f.write_text(s.replace(old,new,1))
+
+(p/'SmartCompression.java').write_text('''package com.squeezelab.video;
+public final class SmartCompression {
+ private SmartCompression() {}
+ public static final class Plan {
+  public final int videoBitrate;
+  public final long estimatedBytes;
+  public final boolean limited;
+  Plan(int v,long b, boolean l){videoBitrate=v;estimatedBytes=b;limited=l;}
+ }
+ public static double parseMb(String s) {
+  if(s==null) throw new IllegalArgumentException("Enter target MB");
+  final double n;
+  try {n=Double.parseDouble(s.trim().replace(',','.'));}
+  catch(NumberFormatException ex){throw new IllegalArgumentException("Enter a valid target MB");}
+  if(!Double.isFinite(n)||n<0.5||n>16384)throw new IllegalArgumentException("Use 0.5 to 16384 MB");
+  return n;
+ }
+ public static Plan plan(double mb,long durationMs,int audioBps,int sourceBps){
+  if(!Double.isFinite(mb)||mb<0.5||mb>16384||durationMs<=0||audioBps<=0)
+   throw new IllegalArgumentException("Invalid size or video duration");
+  double desired=mb*8000000d*.95d*1000d/durationMs-audioBps;
+  int max=sourceBps>0?Math.min(15000000,CompressionMath.effectiveVideoBitrate(15000000,sourceBps)):15000000;
+  max=Math.max(220000,max);
+  int bitrate=(int)Math.max(220000,Math.min(max,desired));
+  return new Plan(bitrate,CompressionMath.estimatedBytes(durationMs,bitrate,audioBps),desired<220000||desired>max);
+ }
+}
+''')
+(p/'CodecSupport.java').write_text('''package com.squeezelab.video;
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecList;
+final class CodecSupport {
+ private CodecSupport() {}
+ static boolean hevcAvailable(){
+  try {for(MediaCodecInfo c:new MediaCodecList(MediaCodecList.REGULAR_CODECS).getCodecInfos()){
+   if(!c.isEncoder()||!c.isHardwareAccelerated())continue;
+   for(String type:c.getSupportedTypes())if("video/hevc".equalsIgnoreCase(type))return true;
+  }}catch(RuntimeException ignored){}
+  return false;
+ }
+}
+''')
+edit('CompressionService.java','    public static final String EXTRA_AUDIO_BITRATE = "audio_bitrate";','    public static final String EXTRA_AUDIO_BITRATE = "audio_bitrate";\n    public static final String EXTRA_HEVC = "hevc";')
+edit('CompressionService.java','        int audioBitrate = intent.getIntExtra(EXTRA_AUDIO_BITRATE, 0);','        int audioBitrate = intent.getIntExtra(EXTRA_AUDIO_BITRATE, 0);\n        boolean hevc = intent.getBooleanExtra(EXTRA_HEVC, false);')
+edit('CompressionService.java','        selectedUri = source == null ? null : Uri.parse(source);','        if (hevc && !CodecSupport.hevcAvailable()) { fail("H.265 hardware encoder unavailable. Choose H.264."); return; }\n        selectedUri = source == null ? null : Uri.parse(source);')
+edit('CompressionService.java','.setVideoMimeType(MimeTypes.VIDEO_H264)','.setVideoMimeType(hevc ? MimeTypes.VIDEO_H265 : MimeTypes.VIDEO_H264)')
+edit('CompressionService.java','if (serial == jobSerial) fail("Compression failed. Try 480p or another file.");','if (serial == jobSerial) fail(hevc ? "H.265 failed. Try H.264." : "Compression failed. Try 480p or another file.");')
+
+f=Path('app/src/main/res/layout/section_controls.xml')
+s=f.read_text()
+pos=s.rfind('</LinearLayout>')
+s=s[:pos]+'''    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:layout_marginTop="12dp" android:padding="12dp"
+        android:background="@drawable/bg_preview">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Smart compression" android:textColor="@color/ink" android:textSize="16sp" />
+        <CheckBox android:id="@+id/targetEnabled" android:layout_width="match_parent"
