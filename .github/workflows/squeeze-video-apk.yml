@@ -27,8 +27,8 @@ jobs:
       - name: Unpack isolated Squeeze Video project
         run: |
           cd squeeze-video
-          base64 -d source.tar.xz.b64 > source.tar.xz
-          echo "a45df1e781c31b02525b056f1587acc91b44d3823db99c1a3d1e3112a529b3b9  source.tar.xz" | sha256sum -c -
+          cat chunks/{01,02,03,04,05,06,07,08}.txt | base64 -d > source.tar.xz
+          echo "146b3c05b03a9f1b001078662d4435d53b7570ffa914d411cc1a588789b7627b  source.tar.xz" | sha256sum -c -
           tar -xJf source.tar.xz
       - name: Run tests and assemble APK
         working-directory: squeeze-video
