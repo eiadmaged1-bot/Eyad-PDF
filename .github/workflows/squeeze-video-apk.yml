@@ -35,6 +35,7 @@ jobs:
           tar -xJf source.tar.xz
           base64 -d v021.patch.gz.b64 | gzip -d > v021.patch
           patch -p1 < v021.patch
+          sed -i '/public final class CompressionService extends Service/i @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)' app/src/main/java/com/squeezelab/video/CompressionService.java
           test -f app/src/main/res/layout-w840dp/activity_main.xml
           grep -q "versionName '0.2.1'" app/build.gradle
       - name: Run tests and assemble APK
