@@ -1,7 +1,7 @@
 name: Squeeze Video APK
 on:
   push:
-    branches: [squeeze-video-apk-v0.2]
+    branches: [squeeze-video-v0.6]
     paths:
       - '.github/workflows/squeeze-video-apk.yml'
       - 'squeeze-video/**'
@@ -59,6 +59,14 @@ jobs:
           python3 v050-upgrade.py
           grep -q "versionName '0.5.0'" app/build.gradle
           test -f app/src/main/java/com/squeezelab/video/StudioBranding.java
+      - name: Export recovered editable v0.5 source
+        run: |
+          tar -czf "$RUNNER_TEMP/SqueezeVideo-v0.5.0-source.tar.gz" -C squeeze-video app build.gradle settings.gradle gradle.properties
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SqueezeVideo-v0.5.0-source-for-v0.6
+          path: ${{ runner.temp }}/SqueezeVideo-v0.5.0-source.tar.gz
+          retention-days: 5
       - name: Run tests and assemble APK
         working-directory: squeeze-video
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
