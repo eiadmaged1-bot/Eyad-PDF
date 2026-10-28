@@ -1,0 +1,49 @@
+name: Squeeze Video APK
+on:
+  push:
+    branches: [squeeze-video-apk-v0.2]
+    paths:
+      - '.github/workflows/squeeze-video-apk.yml'
+      - 'squeeze-video/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - name: Unpack isolated Squeeze Video project
+        run: |
+          cd squeeze-video
+          base64 -d source.tar.xz.b64 > source.tar.xz
+          echo "a45df1e781c31b02525b056f1587acc91b44d3823db99c1a3d1e3112a529b3b9  source.tar.xz" | sha256sum -c -
+          tar -xJf source.tar.xz
+      - name: Run tests and assemble APK
+        working-directory: squeeze-video
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug --stacktrace
+      - name: Verify APK and signing
+        run: |
+          APK=squeeze-video/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "${ANDROID_HOME}/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          sha256sum "$APK" | tee squeeze-video/APK_SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SqueezeVideo-v0.2.0-debug-APK
+          path: |
+            squeeze-video/app/build/outputs/apk/debug/app-debug.apk
+            squeeze-video/APK_SHA256.txt
+          if-no-files-found: error
+          retention-days: 30
