@@ -46,6 +46,10 @@ jobs:
           python3 v040-upgrade.py
           grep -q "versionName '0.4.0'" app/build.gradle
           grep -q 'Smart compression' app/src/main/res/layout/section_controls.xml
+          cat v050-part-{01,02,03}.txt | base64 -d | xz -d > v050-upgrade.py
+          python3 v050-upgrade.py
+          grep -q "versionName '0.5.0'" app/build.gradle
+          test -f app/src/main/java/com/squeezelab/video/StudioBranding.java
       - name: Run tests and assemble APK
         working-directory: squeeze-video
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
@@ -57,7 +61,7 @@ jobs:
           sha256sum "$APK" | tee squeeze-video/APK_SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: SqueezeVideo-v0.4.0-debug-APK
+          name: SqueezeVideo-v0.5.0-debug-APK
           path: |
             squeeze-video/app/build/outputs/apk/debug/app-debug.apk
             squeeze-video/APK_SHA256.txt
