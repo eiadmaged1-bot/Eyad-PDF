@@ -1,7 +1,7 @@
 name: Squeeze Video APK
 on:
   push:
-    branches: [squeeze-video-v0.8-engine]
+    branches: [eyad-video-v0.9]
     paths:
       - '.github/workflows/squeeze-video-apk.yml'
       - 'squeeze-video/**'
@@ -84,6 +84,14 @@ jobs:
           grep -q "versionName '0.8.0'" app/build.gradle
           test -f app/src/main/java/com/squeezelab/video/ExportMetrics.java
           test -f app/src/test/java/com/squeezelab/video/ExportMetricsTest.java
+      - name: Archive editable v0.8 source
+        run: |
+          tar -czf "$RUNNER_TEMP/EyadVideo-v0.8-source.tar.gz" -C squeeze-video app build.gradle settings.gradle gradle.properties
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EyadVideo-v0.8-source-for-v0.9
+          path: ${{ runner.temp }}/EyadVideo-v0.8-source.tar.gz
+          retention-days: 5
       - name: Run tests and assemble APK
         working-directory: squeeze-video
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
