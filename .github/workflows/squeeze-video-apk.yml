@@ -1,7 +1,7 @@
 name: Squeeze Video APK
 on:
   push:
-    branches: [eyad-video-v0.9]
+    branches: [eyad-video-v1.0]
     paths:
       - '.github/workflows/squeeze-video-apk.yml'
       - 'squeeze-video/**'
@@ -112,6 +112,12 @@ jobs:
           grep -q "versionName '0.9.0'" app/build.gradle
           grep -q 'Eyad Video' app/src/main/AndroidManifest.xml
           test -f app/src/main/java/com/squeezelab/video/TimelineHistory.java
+          cat eyad-v10-part-{01,02,03,04}.txt | base64 -d > eyad-v10.diff.xz
+          echo "198824bf56347391c21ddfde55164bd400b4ee1689a71eb23c884b1dd988034e  eyad-v10.diff.xz" | sha256sum -c -
+          xz -dc eyad-v10.diff.xz | patch -p1
+          grep -q "versionName '1.0.0'" app/build.gradle
+          test -f app/src/main/java/com/squeezelab/video/TimelineScrub.java
+          test -f app/src/main/java/com/squeezelab/video/StudioGeometry.java
       - name: Run tests and assemble APK
         working-directory: squeeze-video
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
@@ -123,7 +129,7 @@ jobs:
           sha256sum "$APK" | tee squeeze-video/APK_SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: EyadVideo-v0.9.0-debug-APK
+          name: EyadVideo-v1.0.0-debug-APK
           path: |
             squeeze-video/app/build/outputs/apk/debug/app-debug.apk
             squeeze-video/APK_SHA256.txt
