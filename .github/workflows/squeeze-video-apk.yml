@@ -87,6 +87,22 @@ jobs:
           cat eyad-v09-part-{01,02,03,04,05}.txt | base64 -d > eyad-v09.diff.xz
           echo "6d88b3cf49df112c4db93cd885fae1fef93fa359a194b4635357cc417714303f  eyad-v09.diff.xz" | sha256sum -c -
           xz -dc eyad-v09.diff.xz | patch -p1
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path("app/src/main/java/com/squeezelab/video/StudioActivity.java")
+          code=path.read_text()
+          changes={
+              'Button left=mini("← Left"),right=mini("Right →"),copy=mini("Duplicate"),del=mini("Delete");':
+              'Button left=mini("← Left"),moveRight=mini("Right →"),copy=mini("Duplicate"),del=mini("Delete");',
+              'right.setOnClickListener(v->{if(selected>=0)move(selected,1);});':
+              'moveRight.setOnClickListener(v->{if(selected>=0)move(selected,1);});',
+              'new Button[]{left,right,copy,del}':'new Button[]{left,moveRight,copy,del}'
+          }
+          for old,new in changes.items():
+              assert old in code, old
+              code=code.replace(old,new,1)
+          path.write_text(code)
+          PY
           grep -q "versionName '0.9.0'" app/build.gradle
           grep -q 'Eyad Video' app/src/main/AndroidManifest.xml
           test -f app/src/main/java/com/squeezelab/video/TimelineHistory.java
