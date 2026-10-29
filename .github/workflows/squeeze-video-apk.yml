@@ -103,6 +103,10 @@ jobs:
               code=code.replace(old,new,1)
           code=code.replace('finally{try{r.release();}catch(RuntimeException ignored){}}',
                             'finally{try{r.release();}catch(Exception ignored){}}')
+          old='if(result!=null){thumbnails.put(key,result);if(key.equals(image.getTag()))image.setImageBitmap(result);}'
+          new='if(result!=null){thumbnails.put(key,result);if(timeline!=null)for(int n=0;n<timeline.getChildCount();n++){View tile=timeline.getChildAt(n);if(tile instanceof ViewGroup){View thumb=((ViewGroup)tile).getChildAt(0);if(thumb instanceof ImageView && key.equals(thumb.getTag()))((ImageView)thumb).setImageBitmap(result);}}}'
+          assert old in code, "thumbnail callback"
+          code=code.replace(old,new,1)
           path.write_text(code)
           PY
           grep -q "versionName '0.9.0'" app/build.gradle
