@@ -84,14 +84,12 @@ jobs:
           grep -q "versionName '0.8.0'" app/build.gradle
           test -f app/src/main/java/com/squeezelab/video/ExportMetrics.java
           test -f app/src/test/java/com/squeezelab/video/ExportMetricsTest.java
-      - name: Archive editable v0.8 source
-        run: |
-          tar -czf "$RUNNER_TEMP/EyadVideo-v0.8-source.tar.gz" -C squeeze-video app build.gradle settings.gradle gradle.properties
-      - uses: actions/upload-artifact@v4
-        with:
-          name: EyadVideo-v0.8-source-for-v0.9
-          path: ${{ runner.temp }}/EyadVideo-v0.8-source.tar.gz
-          retention-days: 5
+          cat eyad-v09-part-{01,02,03,04,05}.txt | base64 -d > eyad-v09.diff.xz
+          echo "6d88b3cf49df112c4db93cd885fae1fef93fa359a194b4635357cc417714303f  eyad-v09.diff.xz" | sha256sum -c -
+          xz -dc eyad-v09.diff.xz | patch -p1
+          grep -q "versionName '0.9.0'" app/build.gradle
+          grep -q 'Eyad Video' app/src/main/AndroidManifest.xml
+          test -f app/src/main/java/com/squeezelab/video/TimelineHistory.java
       - name: Run tests and assemble APK
         working-directory: squeeze-video
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
@@ -103,7 +101,7 @@ jobs:
           sha256sum "$APK" | tee squeeze-video/APK_SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: SqueezeVideo-v0.8.0-debug-APK
+          name: EyadVideo-v0.9.0-debug-APK
           path: |
             squeeze-video/app/build/outputs/apk/debug/app-debug.apk
             squeeze-video/APK_SHA256.txt
