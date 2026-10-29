@@ -101,6 +101,8 @@ jobs:
           for old,new in changes.items():
               assert old in code, old
               code=code.replace(old,new,1)
+          code=code.replace('finally{try{r.release();}catch(RuntimeException ignored){}}',
+                            'finally{try{r.release();}catch(Exception ignored){}}')
           path.write_text(code)
           PY
           grep -q "versionName '0.9.0'" app/build.gradle
