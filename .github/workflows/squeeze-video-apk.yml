@@ -78,14 +78,12 @@ jobs:
           PY
           grep -q "versionName '0.7.0'" app/build.gradle
           test -f app/src/main/java/com/squeezelab/video/EfficiencyPolicy.java
-      - name: Recover editable v0.7 source
-        run: |
-          tar -czf "$RUNNER_TEMP/SqueezeVideo-v0.7.0-source.tar.gz" -C squeeze-video app build.gradle settings.gradle gradle.properties
-      - uses: actions/upload-artifact@v4
-        with:
-          name: SqueezeVideo-v0.7-source-for-v0.8
-          path: ${{ runner.temp }}/SqueezeVideo-v0.7.0-source.tar.gz
-          retention-days: 5
+          cat v080-part-{01,02,03,04,05,06,07}.txt | base64 -d > v080-engine.patch.xz
+          echo "a09201798f698f02d574d88dbf7091e81695acd013b53bef88c32692ae4ab7e0  v080-engine.patch.xz" | sha256sum -c -
+          xz -dc v080-engine.patch.xz | patch -p1
+          grep -q "versionName '0.8.0'" app/build.gradle
+          test -f app/src/main/java/com/squeezelab/video/ExportMetrics.java
+          test -f app/src/test/java/com/squeezelab/video/ExportMetricsTest.java
       - name: Run tests and assemble APK
         working-directory: squeeze-video
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
@@ -97,7 +95,7 @@ jobs:
           sha256sum "$APK" | tee squeeze-video/APK_SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: SqueezeVideo-v0.7.0-debug-APK
+          name: SqueezeVideo-v0.8.0-debug-APK
           path: |
             squeeze-video/app/build/outputs/apk/debug/app-debug.apk
             squeeze-video/APK_SHA256.txt
