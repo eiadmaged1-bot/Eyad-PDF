@@ -118,7 +118,7 @@ jobs:
           grep -q "versionName '1.0.0'" app/build.gradle
           test -f app/src/main/java/com/squeezelab/video/TimelineScrub.java
           test -f app/src/main/java/com/squeezelab/video/StudioGeometry.java
-          for part in v101-readable-{01,02,03}.patchpart; do cat "$part"; printf '\n'; done > v101.patch
+          cat v101-readable-{01,02,03}.patchpart > v101.patch
           patch --batch --forward -p1 < v101.patch
           python3 - <<'PY'
           from pathlib import Path
