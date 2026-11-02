@@ -118,13 +118,25 @@ jobs:
           grep -q "versionName '1.0.0'" app/build.gradle
           test -f app/src/main/java/com/squeezelab/video/TimelineScrub.java
           test -f app/src/main/java/com/squeezelab/video/StudioGeometry.java
-      - name: Export v1.0 source for stability work
-        run: tar -czf "$RUNNER_TEMP/eyad-v100-source.tar.gz" -C squeeze-video app build.gradle settings.gradle gradle.properties
-      - uses: actions/upload-artifact@v4
-        with:
-          name: eyad-v100-source-for-playback-fix
-          path: ${{ runner.temp }}/eyad-v100-source.tar.gz
-          retention-days: 3
+          for part in v101-readable-{01,02,03}.patchpart; do cat "$part"; printf '\n'; done > v101.patch
+          patch --batch --forward -p1 < v101.patch
+          python3 - <<'PY'
+          from pathlib import Path
+          file=Path('app/src/main/java/com/squeezelab/video/StudioActivity.java')
+          s=file.read_text()
+          old='''        save(); drawClips(); drawSelection();
+    }
+    private void move(int index, int delta) {'''
+          new='''        save(); drawClips(); drawSelection();
+        previewFrom(index, clips.get(index).start, false, false);
+    }
+    private void move(int index, int delta) {'''
+          assert old in s, "selected clip preview patch anchor missing"
+          file.write_text(s.replace(old,new,1))
+          PY
+          grep -q "versionName '1.0.1'" app/build.gradle
+          grep -q 'ExoPlayer' app/src/main/java/com/squeezelab/video/StudioActivity.java
+          test -f app/src/test/java/com/squeezelab/video/WatermarkSettingsTest.java
       - name: Run tests and assemble APK
         working-directory: squeeze-video
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
@@ -136,7 +148,7 @@ jobs:
           sha256sum "$APK" | tee squeeze-video/APK_SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: EyadVideo-v1.0.0-debug-APK
+          name: EyadVideo-v1.0.1-debug-APK
           path: |
             squeeze-video/app/build/outputs/apk/debug/app-debug.apk
             squeeze-video/APK_SHA256.txt
