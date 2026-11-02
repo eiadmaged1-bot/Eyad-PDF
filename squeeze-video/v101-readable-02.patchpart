@@ -1,0 +1,130 @@
++            @Override public void onPlaybackStateChanged(int state) {
++                if(state==Player.STATE_ENDED && playingIndex>=0){
++                    main.removeCallbacks(previewTick);
++                    if(previewLabel!=null)previewLabel.setText("Playback finished");
++                    updatePlayhead(sequencePlayback?totalDuration():TimelineScrubPosition(playingIndex,clips.get(playingIndex).end));
++                    stopPreview();
++                }
++            }
++            @Override public void onPlayerError(PlaybackException error) {
++                String detail=error.getErrorCodeName();
++                stopPreview();
++                if(previewLabel!=null)previewLabel.setText("Cannot play this video · "+detail+". Try another format (MP4 H.264).");
++            }
++        });
+         int height = wide ? 260 : (lowHeight ? 150 : 205);
+         previewFrame=new FrameLayout(this);
+         previewFrame.setBackgroundColor(Color.rgb(16,27,48));
+@@ -272,13 +310,6 @@
+         bindDrag(captionPreview,true);bindDrag(logoPreview,false);
+         previewFrame.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or_,ob)->positionPreview());
+         refreshVisualPreview();
+-        player.setOnCompletionListener(mp -> {
+-            if (sequencePlayback && playingIndex + 1 < clips.size()) startPreview(playingIndex + 1, true);
+-            else stopPreview();
+-        });
+-        player.setOnErrorListener((mp, what, extra) -> {
+-            stopPreview(); statusText.setText("Preview not available for this clip."); return true;
+-        });
+         previewLabel = text("Add videos to start", 13, MUTED);
+         previewPane.addView(previewLabel, margin(-1, -2, 8));
+         LinearLayout playRow = horizontal();
+@@ -294,6 +325,9 @@
+         LinearLayout.LayoutParams second = new LinearLayout.LayoutParams(0, dp(48), 1);
+         second.leftMargin = dp(8); playRow.addView(playAllButton, second);
+         previewPane.addView(playRow, margin(-1, -2, 8));
++        Button watermarkButton=button("Course watermark · logo in video corner",false);
++        watermarkButton.setOnClickListener(v->openWatermarkSettings());
++        previewPane.addView(watermarkButton,margin(-1,dp(50),7));
+         Button fromPlayhead=button("▶ Play from playhead",false);
+         fromPlayhead.setOnClickListener(v->playAt(playheadMs));
+         previewPane.addView(fromPlayhead,margin(-1,dp(48),3));
+@@ -449,7 +483,8 @@
+                 .putString("advanced_logo",studioLogo)
+                 .putString("music_uri",musicUri).putInt("music_volume",musicVolume)
+                 .putFloat("text_x",textX).putFloat("text_y",textY)
+-                .putFloat("logo_x",logoX).putFloat("logo_y",logoY).apply();
++                .putFloat("logo_x",logoX).putFloat("logo_y",logoY)
++                .putInt("watermark_size",watermarkSize).putInt("watermark_opacity",watermarkOpacity).apply();
+     }
+     private void openAdvancedSettings() {
+         if(busy())return;
+@@ -485,6 +520,51 @@
+                     toast("Advanced export settings saved");
+                 }).show();
+     }
++    private void openWatermarkSettings(){
++        if(busy())return;
++        LinearLayout panel=vertical();panel.setPadding(dp(18),dp(8),dp(18),dp(10));
++        panel.addView(text("Use your course logo (transparent PNG recommended). The logo is burned into the exported video.",13,MUTED),margin(-1,-2,9));
++        Button selectLogo=button(studioLogo.isEmpty()?"Choose course logo":"Change course logo",true);
++        selectLogo.setOnClickListener(v->pickLogo());
++        panel.addView(selectLogo,margin(-1,dp(52),9));
++        panel.addView(text("Watermark position",14,INK),margin(-1,-2,5));
++        Spinner corner=new Spinner(this);
++        String[] labels={"Top right","Top left","Bottom right","Bottom left"};
++        ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,labels);
++        corner.setAdapter(adapter);
++        corner.setSelection(WatermarkSettings.closestCorner(logoX,logoY));
++        panel.addView(corner,margin(-1,dp(52),7));
++        TextView sizeLabel=text("Logo scale: "+watermarkSize+"%",14,INK);
++        panel.addView(sizeLabel);
++        SeekBar size=new SeekBar(this);size.setMax(45);size.setProgress(watermarkSize-10);
++        size.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
++            public void onStartTrackingTouch(SeekBar s){}
++            public void onStopTrackingTouch(SeekBar s){}
++            public void onProgressChanged(SeekBar s,int progress,boolean user){sizeLabel.setText("Logo scale: "+(progress+10)+"%");}
++        });panel.addView(size);
++        TextView alphaLabel=text("Opacity: "+watermarkOpacity+"%",14,INK);
++        panel.addView(alphaLabel);
++        SeekBar alpha=new SeekBar(this);alpha.setMax(90);alpha.setProgress(watermarkOpacity-10);
++        alpha.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
++            public void onStartTrackingTouch(SeekBar s){}
++            public void onStopTrackingTouch(SeekBar s){}
++            public void onProgressChanged(SeekBar s,int progress,boolean user){alphaLabel.setText("Opacity: "+(progress+10)+"%");}
++        });panel.addView(alpha);
++        panel.addView(text("Preview placement is approximate. Original video remains unchanged.",12,MUTED),margin(-1,-2,5));
++        new AlertDialog.Builder(this).setTitle("Course watermark")
++            .setView(panel)
++            .setNeutralButton("Remove logo",(d,w)->{studioLogo="";persistAdvanced();refreshVisualPreview();})
++            .setNegativeButton("Cancel",null)
++            .setPositiveButton("Apply",(d,w)->{
++                float[] xy=WatermarkSettings.position(corner.getSelectedItemPosition());
++                logoX=xy[0];logoY=xy[1];
++                watermarkSize=WatermarkSettings.size(size.getProgress()+10);
++                watermarkOpacity=WatermarkSettings.opacity(alpha.getProgress()+10);
++                persistAdvanced();refreshVisualPreview();positionPreview();
++                toast(studioLogo.isEmpty()?"Choose a course logo to enable watermark":"Course watermark saved for export");
++            }).show();
++    }
++
+     private void openMusicSettings() {
+         if(busy())return;
+         LinearLayout panel=vertical();panel.setPadding(dp(16),dp(8),dp(16),dp(8));
+@@ -554,6 +634,10 @@
+             captionPreview.setY(OverlayPlacement.centerY(textY,h)-captionPreview.getHeight()/2f);
+         }
+         if(logoPreview!=null){
++            ViewGroup.LayoutParams size=logoPreview.getLayoutParams();
++            int target=Math.max(dp(30),Math.round(w*watermarkSize/100f));
++            if(size.width!=target){size.width=target;size.height=Math.max(dp(24),Math.round(target*.77f));logoPreview.setLayoutParams(size);}
++            logoPreview.setAlpha(watermarkOpacity/100f);
+             logoPreview.setX(OverlayPlacement.centerX(logoX,w)-logoPreview.getWidth()/2f);
+             logoPreview.setY(OverlayPlacement.centerY(logoY,h)-logoPreview.getHeight()/2f);
+         }
+@@ -1009,23 +1093,41 @@
+         previewFrom(index,clips.get(index).start,all,true);
+     }
+     private void previewFrom(int index,long sourceMs,boolean all,boolean startPlaying) {
+-        if (index < 0 || index >= clips.size()) return;
++        if(index<0 || index>=clips.size() || exo==null)return;
+         stopPreview();
+-        Clip clip = clips.get(index);
+-        selected = index; playingIndex = index; sequencePlayback = all;
++        Clip clip=clips.get(index);
++        selected=index;
++        previewStartIndex=index;
++        playingIndex=index;
++        sequencePlayback=all;
++        long relative=Math.max(0,Math.min(clip.trimmed()-1,sourceMs-clip.start));
+         updatePlayhead(TimelineScrubPosition(index,sourceMs));
