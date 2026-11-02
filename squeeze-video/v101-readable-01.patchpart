@@ -1,0 +1,130 @@
+diff -ruN '--exclude=*.orig' base/app/build.gradle v100/app/build.gradle
+--- base/app/build.gradle	2026-11-02 21:19:11.000000000 +0000
++++ v100/app/build.gradle	2026-11-02 21:22:07.026729994 +0000
+@@ -10,8 +10,8 @@
+         applicationId 'com.squeezelab.video'
+         minSdk 29
+         targetSdk 35
+-        versionCode 11
+-        versionName '1.0.0'
++        versionCode 12
++        versionName '1.0.1'
+     }
+ 
+     compileOptions {
+@@ -34,6 +34,8 @@
+     implementation 'androidx.media3:media3-transformer:1.11.1'
+     implementation 'androidx.media3:media3-effect:1.11.1'
+     implementation 'androidx.media3:media3-common:1.11.1'
++    implementation 'androidx.media3:media3-exoplayer:1.11.1'
++    implementation 'androidx.media3:media3-ui:1.11.1'
+ 
+     testImplementation 'junit:junit:4.13.2'
+ }
+diff -ruN '--exclude=*.orig' base/app/src/main/java/com/squeezelab/video/CompressionService.java v100/app/src/main/java/com/squeezelab/video/CompressionService.java
+--- base/app/src/main/java/com/squeezelab/video/CompressionService.java	2026-11-02 21:19:11.000000000 +0000
++++ v100/app/src/main/java/com/squeezelab/video/CompressionService.java	2026-11-02 21:22:07.026188067 +0000
+@@ -89,6 +89,8 @@
+     public static final String EXTRA_TEXT_Y = "text_y";
+     public static final String EXTRA_LOGO_X = "logo_x";
+     public static final String EXTRA_LOGO_Y = "logo_y";
++    public static final String EXTRA_LOGO_SIZE = "logo_size";
++    public static final String EXTRA_LOGO_OPACITY = "logo_opacity";
+ 
+     public enum Phase { IDLE, EXPORTING, SAVING, SAVE_FAILED, COMPLETED, FAILED, SAMPLED }
+ 
+@@ -332,7 +334,8 @@
+                     intent.getStringExtra(EXTRA_STUDIO_TEXT),
+                     intent.getStringExtra(EXTRA_STUDIO_LOGO),
+                     intent.getFloatExtra(EXTRA_TEXT_X,0f),intent.getFloatExtra(EXTRA_TEXT_Y,-.78f),
+-                    intent.getFloatExtra(EXTRA_LOGO_X,.78f),intent.getFloatExtra(EXTRA_LOGO_Y,-.70f));
++                    intent.getFloatExtra(EXTRA_LOGO_X,.78f),intent.getFloatExtra(EXTRA_LOGO_Y,-.70f),
++                    intent.getIntExtra(EXTRA_LOGO_SIZE,33),intent.getIntExtra(EXTRA_LOGO_OPACITY,78));
+             if (slide15fps) {
+                 ArrayList<Effect> videoEffects = new ArrayList<>(effects.videoEffects);
+                 videoEffects.add(0, FrameDropEffect.createDefaultFrameDropEffect(15f));
+diff -ruN '--exclude=*.orig' base/app/src/main/java/com/squeezelab/video/StudioActivity.java v100/app/src/main/java/com/squeezelab/video/StudioActivity.java
+--- base/app/src/main/java/com/squeezelab/video/StudioActivity.java	2026-11-02 21:19:11.000000000 +0000
++++ v100/app/src/main/java/com/squeezelab/video/StudioActivity.java	2026-11-02 21:22:07.025713181 +0000
+@@ -45,7 +45,13 @@
+ import android.widget.SeekBar;
+ import android.widget.TextView;
+ import android.widget.Toast;
+-import android.widget.VideoView;
++import androidx.media3.common.MediaItem;
++import androidx.media3.common.PlaybackException;
++import androidx.media3.common.Player;
++import androidx.media3.exoplayer.ExoPlayer;
++import androidx.media3.ui.PlayerView;
++import android.widget.Spinner;
++import android.widget.ArrayAdapter;
+ 
+ import org.json.JSONArray;
+ import org.json.JSONException;
+@@ -130,7 +136,11 @@
+     private String smartMb="25";
+     private LinearLayout timeline, selectionControls, previewPane, timelinePane, bottomActions;
+     private TextView totalText, trimStartText, trimEndText, statusText, previewLabel;
+-    private VideoView player;
++    private PlayerView player;
++    private ExoPlayer exo;
++    private int previewStartIndex = -1;
++    private int watermarkSize = 33;
++    private int watermarkOpacity = 78;
+     private ProgressBar progress;
+     private Button exportButton, cancelButton, retryButton, addButton, playAllButton;
+     private SeekBar startBar, endBar, splitBar, sequenceBar;
+@@ -149,17 +159,15 @@
+     };
+     private final Runnable previewTick = new Runnable() {
+         @Override public void run() {
+-            if (playingIndex < 0 || playingIndex >= clips.size()) return;
+-            Clip c = clips.get(playingIndex);
++            if(exo == null || playingIndex < 0 || playingIndex >= clips.size()) return;
++            Clip clip = clips.get(playingIndex);
+             if(!scrubbingSequence){
+-                long absolute=TimelineScrubPosition(playingIndex, Math.max(c.start,player.getCurrentPosition()));
+-                updatePlayhead(absolute);
++                long sourcePosition=clip.start+Math.max(0,exo.getCurrentPosition());
++                updatePlayhead(TimelineScrubPosition(playingIndex,sourcePosition));
++            }
++            if(exo.getPlayWhenReady() && exo.getPlaybackState()!=Player.STATE_ENDED) {
++                main.postDelayed(this, 150);
+             }
+-            if (player.getCurrentPosition() >= c.end - 70) {
+-                if (sequencePlayback && playingIndex + 1 < clips.size()) {
+-                    startPreview(playingIndex + 1, true);
+-                } else stopPreview();
+-            } else main.postDelayed(this, 90);
+         }
+     };
+ 
+@@ -180,6 +188,8 @@
+         textY=OverlayPlacement.limit(advanced.getFloat("text_y",-.78f));
+         logoX=OverlayPlacement.limit(advanced.getFloat("logo_x",.78f));
+         logoY=OverlayPlacement.limit(advanced.getFloat("logo_y",-.70f));
++        watermarkSize=WatermarkSettings.size(advanced.getInt("watermark_size",33));
++        watermarkOpacity=WatermarkSettings.opacity(advanced.getInt("watermark_opacity",78));
+         if (saved != null) {
+             selected = saved.getInt("selection", selected);
+             quality = saved.getInt("quality", quality);
+@@ -254,7 +264,35 @@
+         }
+         TextView lead = text("Preview and trim", 17, INK); lead.setTypeface(null, android.graphics.Typeface.BOLD);
+         previewPane.addView(lead);
+-        player = new VideoView(this); player.setBackgroundColor(Color.rgb(16, 27, 48));
++        player = new PlayerView(this);
++        player.setBackgroundColor(Color.rgb(16,27,48));
++        player.setUseController(false);
++        exo = new ExoPlayer.Builder(this).build();
++        player.setPlayer(exo);
++        exo.addListener(new Player.Listener() {
++            @Override public void onMediaItemTransition(MediaItem item,int reason) {
++                if(previewStartIndex<0 || exo==null)return;
++                int pos=previewStartIndex+exo.getCurrentMediaItemIndex();
++                if(pos<0||pos>=clips.size())return;
++                playingIndex=pos;
++                Clip c=clips.get(pos);
++                if(previewLabel!=null)previewLabel.setText((exo.getPlayWhenReady()?"Playing ":"Ready at ")+(pos+1)+"/"+clips.size()+" · "+c.title);
++                updatePlayhead(TimelineScrubPosition(pos,c.start+Math.max(0,exo.getCurrentPosition())));
++            }
