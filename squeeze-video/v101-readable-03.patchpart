@@ -1,0 +1,130 @@
+-        previewLabel.setText((startPlaying?"Playing ":"Ready at ")+(index+1)+"/"+clips.size()+" · "+clip.title);
+-        player.setVideoURI(clip.uri);
+-        player.setOnPreparedListener(mp -> {
+-            if(playingIndex!=index)return;
+-            player.seekTo((int)Math.max(clip.start,Math.min(clip.end-1,sourceMs)));
+-            if(startPlaying){player.start();main.postDelayed(previewTick,120);}else player.pause();
+-        });
++        ArrayList<MediaItem> playlist=new ArrayList<>();
++        int last=all?clips.size():index+1;
++        for(int i=index;i<last;i++){
++            Clip c=clips.get(i);
++            MediaItem.ClippingConfiguration clipConfig=new MediaItem.ClippingConfiguration.Builder()
++                .setStartPositionMs(c.start).setEndPositionMs(c.end).build();
++            playlist.add(new MediaItem.Builder().setUri(c.uri)
++                .setClippingConfiguration(clipConfig).build());
++        }
++        try{
++            exo.setMediaItems(playlist);
++            exo.seekTo(0,relative);
++            exo.prepare();
++            exo.setPlayWhenReady(startPlaying);
++            previewLabel.setText((startPlaying?"Playing ":"Ready at ")+(index+1)+"/"+clips.size()+" · "+clip.title);
++            if(startPlaying)main.postDelayed(previewTick,150);
++        }catch(RuntimeException error){
++            stopPreview();previewLabel.setText("Cannot open this clip. Re-add it from Files.");
++        }
+     }
+     private void stopPreview() {
+-        main.removeCallbacks(previewTick); playingIndex = -1;
+-        sequencePlayback = false;
+-        if (player != null) player.stopPlayback();
++        main.removeCallbacks(previewTick);
++        playingIndex=-1;
++        previewStartIndex=-1;
++        sequencePlayback=false;
++        if(exo!=null){exo.setPlayWhenReady(false);exo.stop();exo.clearMediaItems();}
+     }
+ 
+     private long totalDuration() {
+@@ -1082,6 +1184,8 @@
+         intent.putExtra(CompressionService.EXTRA_TEXT_Y,textY);
+         intent.putExtra(CompressionService.EXTRA_LOGO_X,logoX);
+         intent.putExtra(CompressionService.EXTRA_LOGO_Y,logoY);
++        intent.putExtra(CompressionService.EXTRA_LOGO_SIZE,watermarkSize);
++        intent.putExtra(CompressionService.EXTRA_LOGO_OPACITY,watermarkOpacity);
+         startForegroundAction(intent);
+     }
+ 
+@@ -1169,5 +1273,10 @@
+     @Override protected void onSaveInstanceState(Bundle b) {
+         b.putInt("selection", selected); b.putInt("quality", quality); save(); super.onSaveInstanceState(b);
+     }
+-    @Override protected void onDestroy() { main.removeCallbacks(previewTick); worker.shutdown(); super.onDestroy(); }
++    @Override protected void onDestroy() {
++        main.removeCallbacks(previewTick);
++        if(player!=null)player.setPlayer(null);
++        if(exo!=null){exo.release();exo=null;}
++        worker.shutdown();super.onDestroy();
++    }
+ }
+diff -ruN '--exclude=*.orig' base/app/src/main/java/com/squeezelab/video/StudioBranding.java v100/app/src/main/java/com/squeezelab/video/StudioBranding.java
+--- base/app/src/main/java/com/squeezelab/video/StudioBranding.java	2026-11-02 21:19:11.000000000 +0000
++++ v100/app/src/main/java/com/squeezelab/video/StudioBranding.java	2026-11-02 21:22:07.026561681 +0000
+@@ -33,7 +33,7 @@
+ final class StudioBranding {
+     private StudioBranding() {}
+     static Effects effects(Context context,int shortSide,int volume,String text,String logoUri,
+-            float textX, float textY, float logoX, float logoY) {
++            float textX, float textY, float logoX, float logoY, int logoSize, int logoOpacity) {
+         List<AudioProcessor> audio=new ArrayList<>();
+         int v=StudioOptions.volume(volume);
+         if(v<100) audio.add(new GainProcessor(new DefaultGainProvider.Builder(v/100f).build()));
+@@ -55,7 +55,8 @@
+             Bitmap image=loadSmallLogo(context,Uri.parse(logoUri));
+             StaticOverlaySettings position=new StaticOverlaySettings.Builder()
+                     .setOverlayFrameAnchor(0f,0f).setBackgroundFrameAnchor(OverlayPlacement.limit(logoX),OverlayPlacement.limit(logoY))
+-                    .setScale(.33f,.33f).setAlphaScale(.78f).build();
++                    .setScale(WatermarkSettings.size(logoSize)/100f,WatermarkSettings.size(logoSize)/100f)
++                    .setAlphaScale(WatermarkSettings.opacity(logoOpacity)/100f).build();
+             overlays.add(BitmapOverlay.createStaticBitmapOverlay(image,position));
+         }
+         if(!overlays.isEmpty()) video.add(new OverlayEffect(overlays));
+diff -ruN '--exclude=*.orig' base/app/src/main/java/com/squeezelab/video/WatermarkSettings.java v100/app/src/main/java/com/squeezelab/video/WatermarkSettings.java
+--- base/app/src/main/java/com/squeezelab/video/WatermarkSettings.java	1970-01-01 00:00:00.000000000 +0000
++++ v100/app/src/main/java/com/squeezelab/video/WatermarkSettings.java	2026-11-02 21:22:07.026627139 +0000
+@@ -0,0 +1,20 @@
++package com.squeezelab.video;
++
++/** Course logo placement policy, independent of Android framework for testing. */
++final class WatermarkSettings {
++    private WatermarkSettings(){}
++    static int size(int value){return Math.max(10,Math.min(55,value));}
++    static int opacity(int value){return Math.max(10,Math.min(100,value));}
++    static float[] position(int corner){
++        switch(corner){
++            case 1:return new float[]{-.72f,-.76f};
++            case 2:return new float[]{.72f,.76f};
++            case 3:return new float[]{-.72f,.76f};
++            default:return new float[]{.72f,-.76f};
++        }
++    }
++    static int closestCorner(float x,float y){
++        if(x<0)return y>0?3:1;
++        return y>0?2:0;
++    }
++}
+diff -ruN '--exclude=*.orig' base/app/src/test/java/com/squeezelab/video/WatermarkSettingsTest.java v100/app/src/test/java/com/squeezelab/video/WatermarkSettingsTest.java
+--- base/app/src/test/java/com/squeezelab/video/WatermarkSettingsTest.java	1970-01-01 00:00:00.000000000 +0000
++++ v100/app/src/test/java/com/squeezelab/video/WatermarkSettingsTest.java	2026-11-02 21:22:07.026664376 +0000
+@@ -0,0 +1,20 @@
++package com.squeezelab.video;
++
++import org.junit.Test;
++import static org.junit.Assert.*;
++
++public final class WatermarkSettingsTest {
++    @Test public void clampsSizeAndAlpha(){
++        assertEquals(10,WatermarkSettings.size(-3));
++        assertEquals(55,WatermarkSettings.size(87));
++        assertEquals(10,WatermarkSettings.opacity(2));
++        assertEquals(100,WatermarkSettings.opacity(150));
++    }
++    @Test public void cornersStayInsideScreenAndRoundTrip(){
++        for(int corner=0;corner<4;corner++){
++            float[] xy=WatermarkSettings.position(corner);
++            assertTrue(Math.abs(xy[0])<.9f && Math.abs(xy[1])<.9f);
++            assertEquals(corner,WatermarkSettings.closestCorner(xy[0],xy[1]));
++        }
++    }
++}
