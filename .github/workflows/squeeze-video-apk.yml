@@ -124,13 +124,8 @@ jobs:
           from pathlib import Path
           file=Path('app/src/main/java/com/squeezelab/video/StudioActivity.java')
           s=file.read_text()
-          old='''        save(); drawClips(); drawSelection();
-    }
-    private void move(int index, int delta) {'''
-          new='''        save(); drawClips(); drawSelection();
-        previewFrom(index, clips.get(index).start, false, false);
-    }
-    private void move(int index, int delta) {'''
+          old="        save(); drawClips(); drawSelection();\n    }\n    private void move(int index, int delta) {"
+          new="        save(); drawClips(); drawSelection();\n        previewFrom(index, clips.get(index).start, false, false);\n    }\n    private void move(int index, int delta) {"
           assert old in s, "selected clip preview patch anchor missing"
           file.write_text(s.replace(old,new,1))
           PY
