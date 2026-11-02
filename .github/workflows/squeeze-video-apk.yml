@@ -1,7 +1,7 @@
 name: Squeeze Video APK
 on:
   push:
-    branches: [eyad-video-v1.0]
+    branches: [eyad-video-v1.0.1-fixes]
     paths:
       - '.github/workflows/squeeze-video-apk.yml'
       - 'squeeze-video/**'
@@ -118,6 +118,13 @@ jobs:
           grep -q "versionName '1.0.0'" app/build.gradle
           test -f app/src/main/java/com/squeezelab/video/TimelineScrub.java
           test -f app/src/main/java/com/squeezelab/video/StudioGeometry.java
+      - name: Export v1.0 source for stability work
+        run: tar -czf "$RUNNER_TEMP/eyad-v100-source.tar.gz" -C squeeze-video app build.gradle settings.gradle gradle.properties
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eyad-v100-source-for-playback-fix
+          path: ${{ runner.temp }}/eyad-v100-source.tar.gz
+          retention-days: 3
       - name: Run tests and assemble APK
         working-directory: squeeze-video
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
