@@ -1,7 +1,7 @@
 name: Squeeze Video APK
 on:
   push:
-    branches: [eyad-video-v1.0.1-fixes]
+    branches: [eyad-video-emulator-qa]
     paths:
       - '.github/workflows/squeeze-video-apk.yml'
       - 'squeeze-video/**'
@@ -135,6 +135,63 @@ jobs:
       - name: Run tests and assemble APK
         working-directory: squeeze-video
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
+      - name: Prepare Android emulator regression suite
+        working-directory: squeeze-video
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/build.gradle'); s=p.read_text()
+          s=s.replace('defaultConfig {', "defaultConfig {\n        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'",1)
+          s += """
+          dependencies {
+              androidTestImplementation 'androidx.test:core:1.6.1'
+              androidTestImplementation 'androidx.test:runner:1.6.2'
+              androidTestImplementation 'androidx.test:rules:1.6.1'
+              androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+          }
+          """
+          p.write_text(s)
+          PY
+          mkdir -p app/src/androidTest/java/com/squeezelab/video app/src/androidTest/assets
+          cp ci/EditorDeviceRegressionTest.java app/src/androidTest/java/com/squeezelab/video/
+          ffmpeg -hide_banner -loglevel error -nostdin -f lavfi -i "color=c=red:s=320x240:r=24:d=4" -f lavfi -i "sine=frequency=440:sample_rate=48000:duration=4" -c:v libx264 -preset ultrafast -pix_fmt yuv420p -g 24 -c:a aac -b:a 64k -shortest -y app/src/androidTest/assets/clip-red.mp4
+          ffmpeg -hide_banner -loglevel error -nostdin -f lavfi -i "color=c=blue:s=320x240:r=24:d=4" -f lavfi -i "sine=frequency=880:sample_rate=48000:duration=4" -c:v libx264 -preset ultrafast -pix_fmt yuv420p -g 24 -c:a aac -b:a 64k -shortest -y app/src/androidTest/assets/clip-blue.mp4
+          ffmpeg -hide_banner -loglevel error -nostdin -threads 1 -f lavfi -i "color=c=yellow:s=64x64" -frames:v 1 -c:v png -y app/src/androidTest/assets/course-logo.png
+          test -s app/src/androidTest/assets/clip-red.mp4
+          test -s app/src/androidTest/assets/clip-blue.mp4
+          test -s app/src/androidTest/assets/course-logo.png
+      - name: Enable KVM access
+        run: |
+          if test -e /dev/kvm; then sudo chown "$USER" /dev/kvm; else echo "No KVM device; emulator may be slower"; fi
+      - name: Run Android emulator playback and watermark tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          cores: 2
+          ram-size: 3072M
+          disk-size: 6G
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            cd squeeze-video
+            gradle --no-daemon :app:connectedDebugAndroidTest --stacktrace
+      - name: Preserve emulator test results
+        if: always()
+        run: |
+          mkdir -p qa-report
+          if test -d squeeze-video/app/build/outputs/androidTest-results; then cp -r squeeze-video/app/build/outputs/androidTest-results qa-report/; fi
+          if test -d squeeze-video/app/build/outputs/androidTest-results; then find qa-report -type f | head -80; fi
+          if test -d squeeze-video/app/build/reports/androidTests; then cp -r squeeze-video/app/build/reports/androidTests qa-report/; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: EyadVideo-v1.0.1-emulator-QA-results
+          path: qa-report/
+          if-no-files-found: warn
+          retention-days: 14
       - name: Verify APK and signing
         run: |
           APK=squeeze-video/app/build/outputs/apk/debug/app-debug.apk
