@@ -131,6 +131,23 @@ jobs:
           PY
           grep -q "versionName '1.0.1'" app/build.gradle
           grep -q 'ExoPlayer' app/src/main/java/com/squeezelab/video/StudioActivity.java
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("app/src/main/java/com/squeezelab/video/StudioBranding.java")
+          s=p.read_text()
+          for field in ("textY","logoY"):
+              old=f"OverlayPlacement.limit({field}))"
+              new=f"-OverlayPlacement.limit({field}))"
+              assert s.count(old)==1, (field,s.count(old))
+              s=s.replace(old,new,1)
+          p.write_text(s)
+          p=Path("app/build.gradle");s=p.read_text()
+          assert "versionName '1.0.1'" in s
+          s=s.replace("versionName '1.0.1'","versionName '1.0.2'")
+          s=s.replace("versionCode 12","versionCode 13")
+          p.write_text(s)
+          PY
+
           test -f app/src/test/java/com/squeezelab/video/WatermarkSettingsTest.java
       - name: Run tests and assemble APK
         working-directory: squeeze-video
@@ -202,7 +219,7 @@ jobs:
           sha256sum "$APK" | tee squeeze-video/APK_SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: EyadVideo-v1.0.1-debug-APK
+          name: EyadVideo-v1.0.2-watermark-qa-APK
           path: |
             squeeze-video/app/build/outputs/apk/debug/app-debug.apk
             squeeze-video/APK_SHA256.txt
