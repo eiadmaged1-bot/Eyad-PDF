@@ -179,9 +179,7 @@ jobs:
           disk-size: 6G
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: |
-            cd squeeze-video
-            gradle --no-daemon :app:connectedDebugAndroidTest --stacktrace
+          script: cd squeeze-video && gradle --no-daemon :app:connectedDebugAndroidTest --stacktrace
       - name: Preserve emulator test results
         if: always()
         run: |
