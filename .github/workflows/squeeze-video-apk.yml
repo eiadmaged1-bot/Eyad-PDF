@@ -149,14 +149,19 @@ jobs:
           PY
 
           test -f app/src/test/java/com/squeezelab/video/WatermarkSettingsTest.java
-      - name: Preserve editable v1.0.2 source
+          base64 -d v103-performance.patch.xz.b64 > v103-performance.patch.xz
+          echo "fdfee36d2d7e569e685839e26e9342d7b0273b1700da9102f9e81a3802e19bfc  v103-performance.patch.xz" | sha256sum -c -
+          xz -dc v103-performance.patch.xz | patch -p1
+          grep -q "versionName '1.0.3'" app/build.gradle
+          grep -q 'previewPlaylistKey' app/src/main/java/com/squeezelab/video/StudioActivity.java
+      - name: Preserve editable v1.0.3 source
         run: |
-          tar -czf "$RUNNER_TEMP/EyadVideo-v1.0.2-source.tar.gz" -C squeeze-video app build.gradle settings.gradle gradle.properties
+          tar -czf "$RUNNER_TEMP/EyadVideo-v1.0.3-source.tar.gz" -C squeeze-video app build.gradle settings.gradle gradle.properties
       - uses: actions/upload-artifact@v4
         with:
-          name: EyadVideo-v1.0.2-source-for-v1.0.3
-          path: ${{ runner.temp }}/EyadVideo-v1.0.2-source.tar.gz
-          retention-days: 5
+          name: EyadVideo-v1.0.3-editable-source
+          path: ${{ runner.temp }}/EyadVideo-v1.0.3-source.tar.gz
+          retention-days: 30
       - name: Run tests and assemble APK
         working-directory: squeeze-video
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
@@ -185,9 +190,11 @@ jobs:
           cp ci/EditorDeviceRegressionTest.java app/src/androidTest/java/com/squeezelab/video/
           ffmpeg -hide_banner -loglevel error -nostdin -f lavfi -i "color=c=red:s=320x240:r=24:d=4" -f lavfi -i "sine=frequency=440:sample_rate=48000:duration=4" -c:v libx264 -preset ultrafast -pix_fmt yuv420p -g 24 -c:a aac -b:a 64k -shortest -y app/src/androidTest/assets/clip-red.mp4
           ffmpeg -hide_banner -loglevel error -nostdin -f lavfi -i "color=c=blue:s=320x240:r=24:d=4" -f lavfi -i "sine=frequency=880:sample_rate=48000:duration=4" -c:v libx264 -preset ultrafast -pix_fmt yuv420p -g 24 -c:a aac -b:a 64k -shortest -y app/src/androidTest/assets/clip-blue.mp4
+          ffmpeg -hide_banner -loglevel error -nostdin -f lavfi -i "color=c=green:s=320x240:r=24:d=4" -f lavfi -i "sine=frequency=660:sample_rate=48000:duration=4" -c:v libx264 -preset ultrafast -pix_fmt yuv420p -g 24 -c:a aac -b:a 64k -shortest -y app/src/androidTest/assets/clip-green.mp4
           ffmpeg -hide_banner -loglevel error -nostdin -threads 1 -f lavfi -i "color=c=yellow:s=64x64" -frames:v 1 -c:v png -y app/src/androidTest/assets/course-logo.png
           test -s app/src/androidTest/assets/clip-red.mp4
           test -s app/src/androidTest/assets/clip-blue.mp4
+          test -s app/src/androidTest/assets/clip-green.mp4
           test -s app/src/androidTest/assets/course-logo.png
       - name: Enable KVM access
         run: |
@@ -215,7 +222,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: EyadVideo-v1.0.1-emulator-QA-results
+          name: EyadVideo-v1.0.3-emulator-QA-results
           path: qa-report/
           if-no-files-found: warn
           retention-days: 14
@@ -227,7 +234,7 @@ jobs:
           sha256sum "$APK" | tee squeeze-video/APK_SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: EyadVideo-v1.0.2-watermark-qa-APK
+          name: EyadVideo-v1.0.3-stability-APK
           path: |
             squeeze-video/app/build/outputs/apk/debug/app-debug.apk
             squeeze-video/APK_SHA256.txt
