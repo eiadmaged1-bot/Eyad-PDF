@@ -184,4 +184,156 @@ public final class EditorDeviceRegressionTest {
         } finally {reader.release();}
         Log.i(TAG,"PASS: 2 clips combined, output playable and course watermark visible in encoded frame");
     }
+
+    private static void invokeEditor(StudioActivity activity,String name,Class<?>[] signature,Object... args){
+        try{
+            Method m=StudioActivity.class.getDeclaredMethod(name,signature);
+            m.setAccessible(true);m.invoke(activity,args);
+        }catch(Exception e){throw new RuntimeException("Editor operation "+name+" failed",e);}
+    }
+    private static void importOne(StudioActivity activity,Uri uri){
+        try{
+            Intent result=new Intent().setData(uri);
+            Method m=StudioActivity.class.getDeclaredMethod("onActivityResult",int.class,int.class,Intent.class);
+            m.setAccessible(true);m.invoke(activity,2080,Activity.RESULT_OK,result);
+        }catch(Exception e){throw new RuntimeException(e);}
+    }
+    @Test public void repeatedSeeksReuseExistingPlayerPlaylist() throws Exception {
+        File green=fixture("clip-green.mp4");
+        try(ActivityScenario<StudioActivity> scenario=ActivityScenario.launch(StudioActivity.class)){
+            scenario.onActivity(activity->{
+                ((ArrayList<?>)field(activity,"clips")).clear();
+                try{
+                    Field selection=StudioActivity.class.getDeclaredField("selected");
+                    selection.setAccessible(true);selection.setInt(activity,-1);
+                }catch(Exception ex){throw new RuntimeException(ex);}
+                invokeEditor(activity,"save",new Class<?>[]{});
+                importOne(activity,Uri.fromFile(green));
+            });
+            waitForClipCount(scenario,1);
+            scenario.onActivity(activity->{
+                Class<?>[] signature={int.class,long.class,boolean.class,boolean.class};
+                invokeEditor(activity,"previewFrom",signature,0,500L,false,false);
+                int first=(Integer)field(activity,"previewPrepareCount");
+                assertTrue("A new player playlist was never prepared",first>=1);
+                invokeEditor(activity,"previewFrom",signature,0,1100L,false,false);
+                invokeEditor(activity,"previewFrom",signature,0,1700L,false,false);
+                invokeEditor(activity,"previewFrom",signature,0,2100L,false,false);
+                assertEquals("Every seek re-prepared ExoPlayer rather than reusing the playlist",
+                    first,(Integer)field(activity,"previewPrepareCount"));
+            });
+        }
+        Log.i(TAG,"PASS: repeated seeks did not rebuild decoder playlist");
+    }
+
+    @Test public void savedIntroMainOutroAndLogoExportInCorrectOrder() throws Exception {
+        File red=fixture("clip-red.mp4"),green=fixture("clip-green.mp4");
+        File blue=fixture("clip-blue.mp4"),logo=fixture("course-logo.png");
+        AtomicReference<String> project=new AtomicReference<>("");
+        try(ActivityScenario<StudioActivity> scenario=ActivityScenario.launch(StudioActivity.class)){
+            scenario.onActivity(activity->{
+                ((ArrayList<?>)field(activity,"clips")).clear();
+                try{
+                    Field selected=StudioActivity.class.getDeclaredField("selected");
+                    selected.setAccessible(true);selected.setInt(activity,-1);
+                }catch(Exception e){throw new RuntimeException(e);}
+                invokeEditor(activity,"save",new Class<?>[]{});
+                deliverClips(activity,Uri.fromFile(red),Uri.fromFile(blue));
+            });
+            waitForClipCount(scenario,2);
+            scenario.onActivity(activity->{
+                invokeEditor(activity,"saveTemplate",new Class<?>[]{boolean.class},true);
+                invokeEditor(activity,"select",new Class<?>[]{int.class},1);
+                invokeEditor(activity,"saveTemplate",new Class<?>[]{boolean.class},false);
+                invokeEditor(activity,"remove",new Class<?>[]{int.class},1);
+                invokeEditor(activity,"remove",new Class<?>[]{int.class},0);
+                importOne(activity,Uri.fromFile(green));
+            });
+            waitForClipCount(scenario,1);
+            scenario.onActivity(activity->
+                invokeEditor(activity,"insertTemplate",new Class<?>[]{boolean.class},true));
+            waitForClipCount(scenario,2);
+            scenario.onActivity(activity->
+                invokeEditor(activity,"insertTemplate",new Class<?>[]{boolean.class},false));
+            waitForClipCount(scenario,3);
+            scenario.onActivity(activity->{
+                try{
+                    JSONArray array=new JSONArray();
+                    for(Object clip:(ArrayList<?>)field(activity,"clips")){
+                        Method json=clip.getClass().getDeclaredMethod("json");
+                        json.setAccessible(true);array.put((JSONObject)json.invoke(clip));
+                    }
+                    assertTrue("First clip must be saved intro",array.getJSONObject(0).getString("uri").contains("clip-red"));
+                    assertTrue("Main lecture must be in middle",array.getJSONObject(1).getString("uri").contains("clip-green"));
+                    assertTrue("Last clip must be saved outro",array.getJSONObject(2).getString("uri").contains("clip-blue"));
+                    project.set(array.toString());
+                }catch(Exception e){throw new RuntimeException(e);}
+            });
+            scenario.recreate();
+            waitForClipCount(scenario,3);
+        }
+
+        Context app=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        IBinder binder=services.bindService(new Intent(app,CompressionService.class));
+        CompressionService service=((CompressionService.LocalBinder)binder).getService();
+        CountDownLatch finished=new CountDownLatch(1);
+        AtomicReference<CompressionService.Snapshot> outcome=new AtomicReference<>();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(()->service.setListener(snapshot->{
+            if(snapshot.phase==CompressionService.Phase.COMPLETED
+                ||snapshot.phase==CompressionService.Phase.FAILED
+                ||snapshot.phase==CompressionService.Phase.SAVE_FAILED){
+                outcome.set(snapshot);finished.countDown();
+            }
+        }));
+        Intent request=new Intent(app,CompressionService.class).setAction(CompressionService.ACTION_EXPORT);
+        request.putExtra(CompressionService.EXTRA_STUDIO_JSON,project.get());
+        request.putExtra(CompressionService.EXTRA_SHORT_SIDE,240);
+        request.putExtra(CompressionService.EXTRA_SOURCE_BYTES,red.length()+green.length()+blue.length());
+        request.putExtra(CompressionService.EXTRA_VIDEO_BITRATE,500000);
+        request.putExtra(CompressionService.EXTRA_AUDIO_BITRATE,64000);
+        request.putExtra(CompressionService.EXTRA_HEVC,false);
+        request.putExtra(CompressionService.EXTRA_STUDIO_VOLUME,100);
+        request.putExtra(CompressionService.EXTRA_STUDIO_LOGO,Uri.fromFile(logo).toString());
+        request.putExtra(CompressionService.EXTRA_LOGO_X,.72f);
+        request.putExtra(CompressionService.EXTRA_LOGO_Y,-.76f);
+        request.putExtra(CompressionService.EXTRA_LOGO_SIZE,38);
+        request.putExtra(CompressionService.EXTRA_LOGO_OPACITY,100);
+        app.startForegroundService(request);
+        assertTrue("Intro/main/outro export timeout",finished.await(180,TimeUnit.SECONDS));
+        CompressionService.Snapshot result=outcome.get();
+        assertNotNull(result);
+        assertEquals("Export failed: "+result.message,CompressionService.Phase.COMPLETED,result.phase);
+        assertNotNull(result.savedUri);
+        MediaMetadataRetriever reader=new MediaMetadataRetriever();
+        try{
+            reader.setDataSource(app,result.savedUri);
+            long duration=Long.parseLong(reader.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION));
+            assertTrue("Three 4-second clips did not make 12-second export: "+duration,duration>=11500);
+            long[] positions={2000000L,6000000L,10000000L};
+            int[] expected={0,1,2};
+            for(int segment=0;segment<3;segment++){
+                Bitmap frame=reader.getFrameAtTime(positions[segment],MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                assertNotNull("No decoded frame for segment "+segment,frame);
+                int pixel=frame.getPixel(frame.getWidth()/3,frame.getHeight()/2);
+                int r=android.graphics.Color.red(pixel);
+                int g=android.graphics.Color.green(pixel);
+                int b=android.graphics.Color.blue(pixel);
+                if(expected[segment]==0)assertTrue("Intro frame is not red: "+r+","+g+","+b,r>120&&r>g*2&&r>b*2);
+                if(expected[segment]==1)assertTrue("Main frame is not green: "+r+","+g+","+b,g>65&&g>r*2&&g>b*2);
+                if(expected[segment]==2)assertTrue("Outro frame is not blue: "+r+","+g+","+b,b>110&&b>r*2&&b>g*2);
+                int yellow=0;
+                for(int y=0;y<frame.getHeight()/2;y+=2)
+                    for(int x=frame.getWidth()/2;x<frame.getWidth();x+=2){
+                        int color=frame.getPixel(x,y);
+                        if(android.graphics.Color.red(color)>120
+                            &&android.graphics.Color.green(color)>115
+                            &&android.graphics.Color.blue(color)<120)yellow++;
+                    }
+                assertTrue("Course logo missing in "+new String[]{"intro","main","outro"}[segment]
+                    +" ("+yellow+" yellow pixels)",yellow>=10);
+                frame.recycle();
+            }
+        }finally{reader.release();}
+        Log.i(TAG,"PASS: saved intro, main, outro in order; course watermark on all three exported sections");
+    }
 }
