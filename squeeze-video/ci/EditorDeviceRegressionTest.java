@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 import static org.junit.Assert.*;
 
 @RunWith(AndroidJUnit4.class)
@@ -134,10 +135,12 @@ public final class EditorDeviceRegressionTest {
         CompressionService service=((CompressionService.LocalBinder)binder).getService();
         CountDownLatch finished=new CountDownLatch(1);
         AtomicReference<CompressionService.Snapshot> outcome=new AtomicReference<>();
+        AtomicBoolean started=new AtomicBoolean(false);
         InstrumentationRegistry.getInstrumentation().runOnMainSync(()->service.setListener(snapshot->{
-            if(snapshot.phase==CompressionService.Phase.COMPLETED
+            if(snapshot.phase==CompressionService.Phase.EXPORTING)started.set(true);
+            if(started.get() && (snapshot.phase==CompressionService.Phase.COMPLETED
                     || snapshot.phase==CompressionService.Phase.SAVE_FAILED
-                    || snapshot.phase==CompressionService.Phase.FAILED) {
+                    || snapshot.phase==CompressionService.Phase.FAILED)) {
                 outcome.set(snapshot);finished.countDown();
             }
         }));
@@ -220,7 +223,7 @@ public final class EditorDeviceRegressionTest {
                 invokeEditor(activity,"previewFrom",signature,0,1700L,false,false);
                 invokeEditor(activity,"previewFrom",signature,0,2100L,false,false);
                 assertEquals("Every seek re-prepared ExoPlayer rather than reusing the playlist",
-                    first,(Integer)field(activity,"previewPrepareCount"));
+                    first,((Integer)field(activity,"previewPrepareCount")).intValue());
             });
         }
         Log.i(TAG,"PASS: repeated seeks did not rebuild decoder playlist");
@@ -278,10 +281,12 @@ public final class EditorDeviceRegressionTest {
         CompressionService service=((CompressionService.LocalBinder)binder).getService();
         CountDownLatch finished=new CountDownLatch(1);
         AtomicReference<CompressionService.Snapshot> outcome=new AtomicReference<>();
+        AtomicBoolean started=new AtomicBoolean(false);
         InstrumentationRegistry.getInstrumentation().runOnMainSync(()->service.setListener(snapshot->{
-            if(snapshot.phase==CompressionService.Phase.COMPLETED
+            if(snapshot.phase==CompressionService.Phase.EXPORTING)started.set(true);
+            if(started.get() && (snapshot.phase==CompressionService.Phase.COMPLETED
                 ||snapshot.phase==CompressionService.Phase.FAILED
-                ||snapshot.phase==CompressionService.Phase.SAVE_FAILED){
+                ||snapshot.phase==CompressionService.Phase.SAVE_FAILED)){
                 outcome.set(snapshot);finished.countDown();
             }
         }));
