@@ -1,7 +1,7 @@
 name: Squeeze Video APK
 on:
   push:
-    branches: [eyad-video-emulator-qa]
+    branches: [eyad-video-v1.0.3-stability]
     paths:
       - '.github/workflows/squeeze-video-apk.yml'
       - 'squeeze-video/**'
@@ -149,6 +149,14 @@ jobs:
           PY
 
           test -f app/src/test/java/com/squeezelab/video/WatermarkSettingsTest.java
+      - name: Preserve editable v1.0.2 source
+        run: |
+          tar -czf "$RUNNER_TEMP/EyadVideo-v1.0.2-source.tar.gz" -C squeeze-video app build.gradle settings.gradle gradle.properties
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EyadVideo-v1.0.2-source-for-v1.0.3
+          path: ${{ runner.temp }}/EyadVideo-v1.0.2-source.tar.gz
+          retention-days: 5
       - name: Run tests and assemble APK
         working-directory: squeeze-video
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
